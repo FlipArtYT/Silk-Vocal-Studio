@@ -1,5 +1,5 @@
-# Silk-Vocal-Studio
-All-in-One Python GUI for easily creating CV / CVVC / VCV voicebanks for the vocal synthesizer UTAU. Create base folder, record samples, auto generate the oto.ini and package it in one go.
+# Silk Vocal Studio
+All-in-One Python GUI for easily creating CV / CVVC / VCV voicebanks for the vocal synthesizer UTAU. Create base folder, record samples, auto generate the oto.ini and package in one go.
 
 ## About
 
@@ -21,6 +21,7 @@ Silk Vocal Studio combines the main parts of making a UTAU voicebank and even ma
 <summary>
 Explanation "UTAU"
 </summary>
+
 Info: This is for those who are not familiar with UTAU itself. This repository does not include UTAU, this part is just information.
 
 ### What is UTAU?
