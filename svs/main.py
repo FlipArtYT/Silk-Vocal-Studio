@@ -9,6 +9,7 @@
 #- Packaging to zip
 
 import sys
+import os
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -18,13 +19,17 @@ from PyQt5.QtWidgets import (
     QLabel,
     QToolBar,
     QAction,
-    QDialog
+    QDialog,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QPixmap, QIcon
+import webbrowser
 
 # Define Constants
 WINDOW_MINWIDTH, WINDOW_MINHEIGHT = 640, 480
+WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT = 1280, 960
 VERSION_NUMBER = "0.1.0 Alpha"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class MainWindow(QMainWindow):
     
@@ -40,6 +45,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Silk Vocal Studio")
         self.setMinimumSize(WINDOW_MINWIDTH, WINDOW_MINHEIGHT)
+        self.setMaximumSize(WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT)
 
         # Add Toolbar with File, Help options
         menubar = self.menuBar()
@@ -70,14 +76,19 @@ class MainWindow(QMainWindow):
         fileMenu.addAction(newPackageAction)
 
         # Add actions to Help menu
+        documentationAction = helpMenu.addAction("Documentation")
+        documentationAction.triggered.connect(lambda: webbrowser.open("https://github.com/FlipArtYT/Silk-Vocal-Studio/"))
+        helpMenu.addAction(documentationAction)
+
         aboutAction = helpMenu.addAction("About")
         aboutAction.triggered.connect(self.show_about_dialog)
         helpMenu.addAction(aboutAction)
-        
+
+        # Add main screen
         self.title_label = QLabel("Welcome to Silk Vocal Studio")
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
-        self.title_label.setMaximumHeight(50)
+        self.title_label.setMaximumHeight(30)
         title_box.addWidget(self.title_label)
 
         self.new_project_btn = QPushButton("New Project")
@@ -125,11 +136,23 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("About Silk Vocal Studio")
         dlg_layout = QVBoxLayout()
+
+        logoLabel = QLabel(self)
+        logoLabel.setFixedHeight(256)
+        logoLabel.setFixedWidth(256)
+        logoLabel.setAlignment(Qt.AlignCenter)
+        logoLabel.setScaledContents(True)
+        logo_path = os.path.join(SCRIPT_DIR, "assets", "svs.png")
+        pixmap = QPixmap(logo_path)
+        logoLabel.setPixmap(pixmap)
+        
         about_title = QLabel("Silk Vocal Studio")
         about_title.setAlignment(Qt.AlignCenter)
         about_title.setStyleSheet("font-size: 20px; font-weight: bold; padding: 10px;")
         about_label = QLabel(f"Version: {VERSION_NUMBER}\nSilk Project 2025")
         about_label.setAlignment(Qt.AlignCenter)
+
+        dlg_layout.addWidget(logoLabel)
         dlg_layout.addWidget(about_title)
         dlg_layout.addWidget(about_label)
         dlg.setLayout(dlg_layout)
