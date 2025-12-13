@@ -15,14 +15,20 @@ from PyQt5.QtWidgets import (
     QMainWindow,
     QPushButton,
     QVBoxLayout,
+    QHBoxLayout,
+    QFormLayout,
+    QGridLayout,
+    QStackedLayout,
     QWidget,
     QLabel,
-    QToolBar,
-    QAction,
     QDialog,
+    QFileDialog,
+    QLineEdit,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap, QIcon
+from pathlib import Path
 import webbrowser
 
 # Define Constants
@@ -31,21 +37,165 @@ WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT = 1280, 960
 VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-class MainWindow(QMainWindow):
-    
+class VoicebankInfo:
+    def __init__(self, name="", author="", voice="", pitch="A4", version="1.0", cover_path=""):
+        self.name = name
+        self.author = author
+        self.voice = voice
+        self.pitch = pitch
+        self.version = version
+        self.cover_path = cover_path
+
+class CreateBaseFolderWidget(QWidget):
     def __init__(self):
         super().__init__()
-        
-        main_layout = QVBoxLayout()
-        title_box = QVBoxLayout()
-        button_box = QVBoxLayout()
-        
-        main_layout.addLayout(title_box)
-        main_layout.addLayout(button_box)
+        self.vbinfo = VoicebankInfo()
 
+        base_folder_layout = QGridLayout()
+        content_layout = QFormLayout()
+        button_box = QHBoxLayout()
+
+        # Add layouts
+        base_folder_layout.addLayout(content_layout, 0, 0)
+        base_folder_layout.addLayout(button_box, 1, 0)
+
+        # Add content
+        title_label = QLabel("Create Base Voicebank Folder")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 10px;")
+        content_layout.addRow(title_label)
+
+        create_voicebank_folder_at_btn = QPushButton("Select Path...")
+        create_voicebank_folder_at_btn.pressed.connect(self.select_voicebank_folder)
+        create_voicebank_folder_at_btn.setFixedWidth(200)
+        content_layout.addRow("Voicebank folder path:", create_voicebank_folder_at_btn)
+
+        self.voicebank_name_input = QLineEdit()
+        content_layout.addRow("Voicebank Name:", self.voicebank_name_input)
+        self.voicebank_author_input = QLineEdit()
+        content_layout.addRow("Author Name (optional):", self.voicebank_author_input)
+        self.voicebank_voice_input = QLineEdit()
+        content_layout.addRow("Voiced by (optional):", self.voicebank_voice_input)
+        self.voicebank_version_input = QLineEdit()
+        content_layout.addRow("Version (optional):", self.voicebank_version_input)
+        self.voicebank_pitch_input = QComboBox()
+        self.voicebank_pitch_input.addItems(["A3", "A4", "A5"])
+        content_layout.addRow("Voicebank Pitch:", self.voicebank_pitch_input)
+        self.voicebank_cover_path_btn = QPushButton("Select Cover Image (optional)...")
+        self.voicebank_cover_path_btn.pressed.connect(self.select_cover_image)
+        self.voicebank_cover_path_btn.setFixedWidth(300)
+        content_layout.addRow("Voicebank Cover Image:", self.voicebank_cover_path_btn)
+        
+        # Navigation buttons
+        home_button = QPushButton("Back to Main Menu")
+        # home_button.pressed.connect(self.go_home)
+        button_box.addWidget(home_button)
+
+        create_button = QPushButton("Create Base Folder")
+        create_button.pressed.connect(self.create_base_folder)
+        button_box.addWidget(create_button)
+
+        self.setLayout(base_folder_layout)
+    
+    def select_voicebank_folder(self):
+        # Select path to create base voicebank folder
+        self.voicebank_folder_path = QFileDialog.getExistingDirectory(self, "Select Voicebank Folder Path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
+        if not self.voicebank_folder_path:
+            self.error_dialog("No folder selected. Please select a valid folder path.")
+        else:
+            self.vbinfo.folder_path = self.voicebank_folder_path
+
+    def select_cover_image(self):
+        # Select cover image file (has to be bmp or jpg)
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Cover Image", os.path.expanduser(""), "Cover Images (*.bmp *.jpg *.jpeg);;")
+        self.cover_image_path = file_path
+
+        if not self.cover_image_path:
+            self.error_dialog("No image selected. Please select a valid image file.")
+        elif not self.cover_image_path.endswith(('.bmp', '.jpg')):
+            self.error_dialog("Invalid image format. Please select a BMP or JPG image file.")
+        else:
+            self.vbinfo.cover_path = self.cover_image_path
+        
+    def create_base_folder(self):
+        # Check if voicebank folder path and voicebank name is set
+        self.vbinfo.name = self.voicebank_name_input.text().strip()
+        self.vbinfo.author = self.voicebank_author_input.text().strip()
+        self.vbinfo.voice = self.voicebank_voice_input.text().strip()
+        self.vbinfo.version = self.voicebank_version_input.text().strip()
+        self.vbinfo.pitch = self.voicebank_pitch_input.currentText()
+
+        if not hasattr(self, 'voicebank_folder_path') or not self.voicebank_folder_path:
+            self.error_dialog("Voicebank folder path is not set. Please select a valid folder path.")
+            return
+        if not self.vbinfo.name:
+            self.error_dialog("Voicebank name is required. Please enter a valid name.")
+            return
+        
+        print(f"Creating base voicebank folder at: {self.voicebank_folder_path}")
+
+        # Create base folder structure
+        try:
+            samples_path = os.path.join(self.voicebank_folder_path, self.vbinfo.pitch)
+            os.makedirs(samples_path, exist_ok=True)
+
+            character_txt_path = os.path.join(self.voicebank_folder_path, "character.txt")
+            with open(character_txt_path, "w", encoding="utf-8") as f:
+                f.write(f"name: {self.vbinfo.name}\n")
+                f.write(f"author: {self.vbinfo.author}\n")
+                f.write(f"voice: {self.vbinfo.voice}\n")
+                f.write(f"version: {self.vbinfo.version}\n")
+                f.write(f"cover: {os.path.basename(self.vbinfo.cover_path) if self.vbinfo.cover_path else ''}\n")
+
+            print("Base voicebank folder created successfully.")
+        except Exception as e:
+            self.error_dialog(f"Error creating base voicebank folder: {str(e)}")
+        
+
+    def error_dialog(self, message):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Error")
+        dlg_layout = QVBoxLayout()
+        error_label = QLabel(message)
+        error_label.setAlignment(Qt.AlignCenter)
+        dlg_layout.addWidget(error_label)
+        dlg.setLayout(dlg_layout)
+        btn = dlg.exec()
+
+class RecordWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        record_layout = QGridLayout()
+        self.setLayout(record_layout)
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        # Set window properties
         self.setWindowTitle("Silk Vocal Studio")
         self.setMinimumSize(WINDOW_MINWIDTH, WINDOW_MINHEIGHT)
         self.setMaximumSize(WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT)
+
+        # Set layouts
+        self.layout = QStackedLayout()
+        self.main_layout = QVBoxLayout()
+        self.title_box = QVBoxLayout()
+        self.button_box = QVBoxLayout()
+        
+        self.main_layout.addLayout(self.title_box)
+        self.main_layout.addLayout(self.button_box)
+
+        # Create widgets
+        self.main_widget = QWidget()
+        self.main_widget.setLayout(self.main_layout)
+        self.record_widget = RecordWidget()
+        self.create_base_folder_widget = CreateBaseFolderWidget()
+
+        self.layout.addWidget(self.main_widget)
+        self.layout.addWidget(self.record_widget)
+        self.layout.addWidget(self.create_base_folder_widget)
+
+        self.layout.setCurrentWidget(self.main_widget)
 
         # Add Toolbar with File, Help options
         menubar = self.menuBar()
@@ -89,37 +239,43 @@ class MainWindow(QMainWindow):
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
         self.title_label.setMaximumHeight(30)
-        title_box.addWidget(self.title_label)
+        self.title_box.addWidget(self.title_label)
 
         self.new_project_btn = QPushButton("New Project")
         self.new_project_btn.pressed.connect(self.new_project)
-        button_box.addWidget(self.new_project_btn)
+        self.button_box.addWidget(self.new_project_btn)
         
         self.new_bfolder_btn = QPushButton("Create base voicebank folder")
         self.new_bfolder_btn.pressed.connect(self.create_base_folder)
-        button_box.addWidget(self.new_bfolder_btn)
+        self.button_box.addWidget(self.new_bfolder_btn)
         
         self.new_record_btn = QPushButton("Record from Reclist")
         self.new_record_btn.pressed.connect(self.record_from_reclist)
-        button_box.addWidget(self.new_record_btn)
+        self.button_box.addWidget(self.new_record_btn)
 
         self.new_oto_btn = QPushButton("Configure oto.ini")
         self.new_oto_btn.pressed.connect(self.configure_oto)
-        button_box.addWidget(self.new_oto_btn)
+        self.button_box.addWidget(self.new_oto_btn)
 
         self.new_package_btn = QPushButton("Package voicebank to zip")
         self.new_package_btn.pressed.connect(self.package_voicebank)
-        button_box.addWidget(self.new_package_btn)
+        self.button_box.addWidget(self.new_package_btn)
                
         widget = QWidget()
-        widget.setLayout(main_layout)
+        widget.setLayout(self.layout)
         self.setCentralWidget(widget)
     
     # Define start button functions
+    def go_home(self):
+        self.layout.setCurrentWidget(self.main_widget)
+        print("Returning to main menu")
+
     def new_project(self):
+        self.layout.setCurrentWidget(self.record_widget)
         print("New Project button pressed")
 
     def create_base_folder(self):
+        self.layout.setCurrentWidget(self.create_base_folder_widget)
         print("Create base voicebank folder button pressed")
     
     def record_from_reclist(self):
@@ -148,7 +304,7 @@ class MainWindow(QMainWindow):
         
         about_title = QLabel("Silk Vocal Studio")
         about_title.setAlignment(Qt.AlignCenter)
-        about_title.setStyleSheet("font-size: 20px; font-weight: bold; padding: 10px;")
+        about_title.setStyleSheet("font-size: 20px; font-weight: bold;")
         about_label = QLabel(f"Version: {VERSION_NUMBER}\nSilk Project 2025")
         about_label.setAlignment(Qt.AlignCenter)
 
@@ -165,7 +321,6 @@ if __name__ == "__main__":
     app.setStyleSheet("""
         QPushButton {
             font-size: 18px;
-            padding: 5px;
         }
     """)
     window = MainWindow()
