@@ -33,13 +33,14 @@ import webbrowser
 
 # Define Constants
 WINDOW_MINWIDTH, WINDOW_MINHEIGHT = 640, 480
-WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT = 1280, 960
+WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT = 960, 720
 VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class VoicebankInfo:
-    def __init__(self, name="", author="", voice="", pitch="A4", version="1.0", website="", cover_path=""):
+    def __init__(self, name="", folder_path="", author="", voice="", pitch="A4", version="1.0", website="", cover_path=""):
         self.name = name
+        self.folder_path = folder_path
         self.author = author
         self.voice = voice
         self.pitch = pitch
@@ -80,7 +81,9 @@ class CreateBaseFolderWidget(QWidget):
         self.voicebank_version_input = QLineEdit()
         content_layout.addRow("Version (optional):", self.voicebank_version_input)
         self.voicebank_pitch_input = QComboBox()
-        self.voicebank_pitch_input.addItems(["A3", "A4", "A5"])
+        pitches = [f"{note}{octave}" for octave in range(2, 6) for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
+        self.voicebank_pitch_input.addItems(pitches)
+        self.voicebank_pitch_input.setCurrentText("A4")
         content_layout.addRow("Voicebank Pitch:", self.voicebank_pitch_input)
         self.voicebank_cover_path_btn = QPushButton("Select Cover Image (optional)...")
         self.voicebank_cover_path_btn.pressed.connect(self.select_cover_image)
@@ -108,7 +111,7 @@ class CreateBaseFolderWidget(QWidget):
 
     def select_cover_image(self):
         # Select cover image file (has to be bmp or jpg)
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Cover Image", os.path.expanduser(""), "Cover Images (*.bmp *.jpg *.jpeg);;")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Cover Image", os.path.expanduser(""), "Cover Images (*.bmp *.jpg)")
         self.cover_image_path = file_path
 
         if not self.cover_image_path:
@@ -126,27 +129,35 @@ class CreateBaseFolderWidget(QWidget):
         self.vbinfo.version = self.voicebank_version_input.text().strip()
         self.vbinfo.pitch = self.voicebank_pitch_input.currentText()
 
-        if not hasattr(self, 'voicebank_folder_path') or not self.voicebank_folder_path:
-            self.error_dialog("Voicebank folder path is not set. Please select a valid folder path.")
-            return
         if not self.vbinfo.name:
             self.error_dialog("Voicebank name is required. Please enter a valid name.")
+            return
+        if not hasattr(self, 'voicebank_folder_path') or not self.voicebank_folder_path:
+            self.error_dialog("Voicebank folder path is not set. Please select a valid folder path.")
             return
         
         print(f"Creating base voicebank folder at: {self.voicebank_folder_path}")
 
         # Create base folder structure
         try:
-            samples_path = os.path.join(self.voicebank_folder_path, self.vbinfo.pitch)
-            os.makedirs(samples_path, exist_ok=True)
+            self.vbinfo.folder_path = os.path.join(self.voicebank_folder_path, self.vbinfo.name)
+            os.makedirs(self.vbinfo.folder_path, exist_ok=True)
+            samples_folder_path = os.path.join(self.vbinfo.folder_path, self.vbinfo.pitch)
+            os.makedirs(samples_folder_path, exist_ok=True)
 
-            character_txt_path = os.path.join(self.voicebank_folder_path, "character.txt")
+            character_txt_path = os.path.join(self.vbinfo.folder_path, "character.txt")
             with open(character_txt_path, "w", encoding="utf-8") as f:
                 f.write(f"name: {self.vbinfo.name}\n")
                 f.write(f"author: {self.vbinfo.author}\n")
                 f.write(f"voice: {self.vbinfo.voice}\n")
                 f.write(f"version: {self.vbinfo.version}\n")
-                f.write(f"cover: {os.path.basename(self.vbinfo.cover_path) if self.vbinfo.cover_path else ''}\n")
+                if self.vbinfo.cover_path:
+                    f.write(f"cover: {os.path.basename(self.vbinfo.cover_path)}\n")
+                    # Copy cover image to voicebank folder
+                    cover_dest_path = os.path.join(self.vbinfo.folder_path, os.path.basename(self.vbinfo.cover_path))
+                    with open(self.vbinfo.cover_path, "rb") as src_file:
+                        with open(cover_dest_path, "wb") as dest_file:
+                            dest_file.write(src_file.read())
 
             print("Base voicebank folder created successfully.")
         except Exception as e:
@@ -176,6 +187,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Silk Vocal Studio")
         self.setMinimumSize(WINDOW_MINWIDTH, WINDOW_MINHEIGHT)
         self.setMaximumSize(WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT)
+        self.resize(WINDOW_MINWIDTH, WINDOW_MINHEIGHT)
+        self.setWindowIcon(QIcon(os.path.join(SCRIPT_DIR, "assets", "svs_icon.png")))
 
         # Set layouts
         self.layout = QStackedLayout()
