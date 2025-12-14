@@ -25,10 +25,15 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QLineEdit,
     QComboBox,
+    QTableWidget,
+    QTableWidgetItem,
 )
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QIcon
 from pathlib import Path
+import shutil
+import pyqtgraph as pg
+import numpy as np
 import webbrowser
 
 # Define Constants
@@ -49,6 +54,8 @@ class VoicebankInfo:
         self.cover_path = cover_path
 
 class CreateBaseFolderWidget(QWidget):
+    back_to_main_menu = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.vbinfo = VoicebankInfo()
@@ -58,13 +65,13 @@ class CreateBaseFolderWidget(QWidget):
         button_box = QHBoxLayout()
 
         # Add layouts
-        base_folder_layout.addLayout(content_layout, 0, 0)
-        base_folder_layout.addLayout(button_box, 1, 0)
+        base_folder_layout.addLayout(content_layout, 0, 0, 1, 0)
+        base_folder_layout.addLayout(button_box, 1, 1)
 
         # Add content
         title_label = QLabel("Create Base Voicebank Folder")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 10px;")
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
         content_layout.addRow(title_label)
 
         create_voicebank_folder_at_btn = QPushButton("Select Path...")
@@ -74,26 +81,26 @@ class CreateBaseFolderWidget(QWidget):
 
         self.voicebank_name_input = QLineEdit()
         content_layout.addRow("Voicebank Name:", self.voicebank_name_input)
+
         self.voicebank_author_input = QLineEdit()
         content_layout.addRow("Author Name (optional):", self.voicebank_author_input)
+
         self.voicebank_voice_input = QLineEdit()
         content_layout.addRow("Voiced by (optional):", self.voicebank_voice_input)
+
         self.voicebank_version_input = QLineEdit()
         content_layout.addRow("Version (optional):", self.voicebank_version_input)
+
         self.voicebank_pitch_input = QComboBox()
         pitches = [f"{note}{octave}" for octave in range(2, 6) for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
         self.voicebank_pitch_input.addItems(pitches)
         self.voicebank_pitch_input.setCurrentText("A4")
         content_layout.addRow("Voicebank Pitch:", self.voicebank_pitch_input)
+
         self.voicebank_cover_path_btn = QPushButton("Select Cover Image (optional)...")
         self.voicebank_cover_path_btn.pressed.connect(self.select_cover_image)
         self.voicebank_cover_path_btn.setFixedWidth(300)
         content_layout.addRow("Voicebank Cover Image:", self.voicebank_cover_path_btn)
-        
-        # Navigation buttons
-        home_button = QPushButton("Back to Main Menu")
-        # home_button.pressed.connect(self.go_home)
-        button_box.addWidget(home_button)
 
         create_button = QPushButton("Create Base Folder")
         create_button.pressed.connect(self.create_base_folder)
@@ -160,6 +167,15 @@ class CreateBaseFolderWidget(QWidget):
                             dest_file.write(src_file.read())
 
             print("Base voicebank folder created successfully.")
+
+            # Clear inputs and return to main menu
+            self.voicebank_name_input.clear()
+            self.voicebank_author_input.clear()
+            self.voicebank_voice_input.clear()
+            self.voicebank_version_input.clear()
+            self.voicebank_pitch_input.setCurrentText("A4")
+            self.vbinfo.cover_path = ""
+            self.back_to_main_menu.emit()
         except Exception as e:
             self.error_dialog(f"Error creating base voicebank folder: {str(e)}")
         
@@ -175,10 +191,76 @@ class CreateBaseFolderWidget(QWidget):
         btn = dlg.exec()
 
 class RecordWidget(QWidget):
+    back_to_main_menu = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         record_layout = QGridLayout()
+
+        title_label = QLabel("Record from Reclist")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
+        record_layout.addWidget(title_label, 0, 0, 1, 0)
+
+        self.current_reclist_line = QLabel("Current Reclist Line: N/A")
+        self.current_reclist_line.setAlignment(Qt.AlignLeft)
+        self.current_reclist_line.setStyleSheet("font-size: 30px; padding: 10px;")
+        record_layout.addWidget(self.current_reclist_line, 1, 0)
+
+        self.reclist_list = QTableWidget()
+        self.reclist_list.setColumnCount(2)
+        self.reclist_list.setHorizontalHeaderLabels(["Recorded", "Phoneme"])
+        self.reclist_list.horizontalHeader().setStretchLastSection(True)
+        self.reclist_list.setEditTriggers(QTableWidget.NoEditTriggers)
+        record_layout.addWidget(self.reclist_list, 2, 0)
+
+        self.audio_visualizer = pg.PlotWidget()
+        self.audio_visualizer.setBackground('w')
+        self.audio_visualizer.setTitle("Audio Visualizer", color="#000000", size="10pt")
+        self.audio_visualizer.setLabel('left', 'Amplitude', color='#000000', size='14pt')
+        self.audio_visualizer.setLabel('bottom', 'Time', color='#000000', size='14pt')
+        record_layout.addWidget(self.audio_visualizer, 2, 1)
+
+        record_line_btn = QPushButton("Record")
+        record_line_btn.setFixedWidth(200)
+        record_layout.addWidget(record_line_btn, 3, 0)
+
+        import_reclist_btn = QPushButton("Import Reclist...")
+        import_reclist_btn.setFixedWidth(200)
+        record_layout.addWidget(import_reclist_btn, 3, 1)
+        import_reclist_btn.pressed.connect(self.import_reclist)
+
         self.setLayout(record_layout)
+
+    def error_dialog(self, message):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Error")
+        dlg_layout = QVBoxLayout()
+        error_label = QLabel(message)
+        error_label.setAlignment(Qt.AlignCenter)
+        dlg_layout.addWidget(error_label)
+        dlg.setLayout(dlg_layout)
+        btn = dlg.exec()
+    
+    def import_reclist(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Import Reclist", os.path.expanduser(""), "Text Files (*.txt)")
+        if not file_path:
+            self.error_dialog("No file selected. Please select a valid reclist file.")
+        else:
+            # Import reclist file and populate table
+            reslist_path, _ = QFileDialog.getOpenFileName(self, "Select Reclist file", os.path.expanduser(""), "Text Files (*.txt)")
+
+            with open(reslist_path, "r", encoding="utf-8") as f:
+                reclist_lines = [line.strip() for line in f if line.strip()]
+            self.reclist_list.setRowCount(len(reclist_lines))
+
+            for i, line in enumerate(reclist_lines):
+                recorded_item = QTableWidgetItem("No")
+                phoneme_item = QTableWidgetItem(line)
+                self.reclist_list.setItem(i, 0, recorded_item)
+                self.reclist_list.setItem(i, 1, phoneme_item)
+            
+            self.current_reclist_line.setText(f"Current Reclist Line: {reclist_lines[0] if reclist_lines else 'N/A'}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -203,7 +285,9 @@ class MainWindow(QMainWindow):
         self.main_widget = QWidget()
         self.main_widget.setLayout(self.main_layout)
         self.record_widget = RecordWidget()
+        self.record_widget.back_to_main_menu.connect(self.go_home)
         self.create_base_folder_widget = CreateBaseFolderWidget()
+        self.create_base_folder_widget.back_to_main_menu.connect(self.go_home)
 
         self.layout.addWidget(self.main_widget)
         self.layout.addWidget(self.record_widget)
@@ -240,7 +324,7 @@ class MainWindow(QMainWindow):
         fileMenu.addAction(newPackageAction)
 
         # Add actions to Help menu
-        documentationAction = helpMenu.addAction("Documentation")
+        documentationAction = helpMenu.addAction("Project Page")
         documentationAction.triggered.connect(lambda: webbrowser.open("https://github.com/FlipArtYT/Silk-Vocal-Studio/"))
         helpMenu.addAction(documentationAction)
 
@@ -256,24 +340,29 @@ class MainWindow(QMainWindow):
         self.title_box.addWidget(self.title_label)
 
         self.new_project_btn = QPushButton("New Project")
+        self.new_project_btn.setFixedWidth(500)
         self.new_project_btn.pressed.connect(self.new_project)
-        self.button_box.addWidget(self.new_project_btn)
+        self.button_box.addWidget(self.new_project_btn, alignment=Qt.AlignHCenter)
         
         self.new_bfolder_btn = QPushButton("Create base voicebank folder")
+        self.new_bfolder_btn.setFixedWidth(500)
         self.new_bfolder_btn.pressed.connect(self.create_base_folder)
-        self.button_box.addWidget(self.new_bfolder_btn)
+        self.button_box.addWidget(self.new_bfolder_btn, alignment=Qt.AlignHCenter)
         
         self.new_record_btn = QPushButton("Record from Reclist")
+        self.new_record_btn.setFixedWidth(500)
         self.new_record_btn.pressed.connect(self.record_from_reclist)
-        self.button_box.addWidget(self.new_record_btn)
+        self.button_box.addWidget(self.new_record_btn, alignment=Qt.AlignHCenter)
 
         self.new_oto_btn = QPushButton("Configure oto.ini")
+        self.new_oto_btn.setFixedWidth(500)
         self.new_oto_btn.pressed.connect(self.configure_oto)
-        self.button_box.addWidget(self.new_oto_btn)
+        self.button_box.addWidget(self.new_oto_btn, alignment=Qt.AlignHCenter)
 
         self.new_package_btn = QPushButton("Package voicebank to zip")
+        self.new_package_btn.setFixedWidth(500)
         self.new_package_btn.pressed.connect(self.package_voicebank)
-        self.button_box.addWidget(self.new_package_btn)
+        self.button_box.addWidget(self.new_package_btn, alignment=Qt.AlignHCenter)
                
         widget = QWidget()
         widget.setLayout(self.layout)
@@ -282,18 +371,15 @@ class MainWindow(QMainWindow):
     # Define start button functions
     def go_home(self):
         self.layout.setCurrentWidget(self.main_widget)
-        print("Returning to main menu")
 
     def new_project(self):
         self.layout.setCurrentWidget(self.record_widget)
-        print("New Project button pressed")
 
     def create_base_folder(self):
         self.layout.setCurrentWidget(self.create_base_folder_widget)
-        print("Create base voicebank folder button pressed")
     
     def record_from_reclist(self):
-        print("Record from Reclist button pressed")
+        self.layout.setCurrentWidget(self.record_widget)
 
     def configure_oto(self):
         print("Configure oto.ini button pressed")
@@ -319,11 +405,15 @@ class MainWindow(QMainWindow):
         about_title = QLabel("Silk Vocal Studio")
         about_title.setAlignment(Qt.AlignCenter)
         about_title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        about_description = QLabel("An all-in-one Python GUI for creating UTAU voicebanks.")
+        about_description.setWordWrap(True)
+        about_description.setAlignment(Qt.AlignCenter)
         about_label = QLabel(f"Version: {VERSION_NUMBER}\nSilk Project 2025")
         about_label.setAlignment(Qt.AlignCenter)
 
         dlg_layout.addWidget(logoLabel)
         dlg_layout.addWidget(about_title)
+        dlg_layout.addWidget(about_description)
         dlg_layout.addWidget(about_label)
         dlg.setLayout(dlg_layout)
         btn = dlg.exec()
