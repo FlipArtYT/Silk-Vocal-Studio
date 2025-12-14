@@ -38,12 +38,13 @@ VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class VoicebankInfo:
-    def __init__(self, name="", author="", voice="", pitch="A4", version="1.0", cover_path=""):
+    def __init__(self, name="", author="", voice="", pitch="A4", version="1.0", website="", cover_path=""):
         self.name = name
         self.author = author
         self.voice = voice
         self.pitch = pitch
         self.version = version
+        self.website = website
         self.cover_path = cover_path
 
 class CreateBaseFolderWidget(QWidget):

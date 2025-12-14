@@ -1,1 +1,6 @@
 .venv
+testvb/
+__pycache__/
+*.pyc
+plan.txt
+pyaudio_test.py
