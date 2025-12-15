@@ -3,13 +3,15 @@ All-in-One Python GUI for easily creating CV / CVVC / VCV voicebanks for the voc
 
 ## Features
 - Simple but modern PyQT5 GUI
-- Create base folder with sample folder and `character.txt` for voicebank info
-- Recording from a `reclist.txt` file
-- Recording visualisation with `matplotlib`
-- Automatic configuration of oto.ini file
-- Packaging to zip
+- Create base folder with sample folder and `character.txt` for voicebank info [✅]
+- Recording from a `reclist.txt` file [⏲️]
+- Recording visualisation with `pyqtgraph` [⏲️]
+- Automatic configuration of oto.ini file [❌]
+- Packaging to zip [⏲️]
 
-Info: This is currently in planning phase.
+✅: available
+❌: unavailable
+⏲️: working on it
 
 ## Why Silk Vocal Studio?
 Silk Vocal Studio removes the annoying process of needing to install multiple applications to create a voicebank, which includes the recording software (like OREMO or Recstar) and the oto.ini generator (setParam or MoreSampler) or editor (UTAU oto editor, vLabeler).
@@ -17,7 +19,7 @@ Silk Vocal Studio combines the main parts of making a UTAU voicebank and even ma
 
 ## Requirements
 - `PyQT5` (pip)
-- `matplotlib` (pip)
+- `pyqtgraph` (pip)
 
 ## Running the program
 To use this program, simply execute the `main.py` file directly via `python3`.
