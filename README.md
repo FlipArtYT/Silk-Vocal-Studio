@@ -9,8 +9,8 @@ All-in-One Python GUI for easily creating CV / CVVC / VCV voicebanks for the voc
 - Automatic configuration of oto.ini file [❌]
 - Packaging to zip [⏲️]
 
-✅: available
-❌: unavailable
+✅: available<br>
+❌: unavailable<br>
 ⏲️: working on it
 
 ## Why Silk Vocal Studio?
