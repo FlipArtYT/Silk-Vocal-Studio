@@ -33,6 +33,7 @@ from PyQt5.QtGui import QPixmap, QIcon
 from pathlib import Path
 import shutil
 import pyqtgraph as pg
+from pyqtgraph.Qt import QtWidgets
 import numpy as np
 import webbrowser
 
@@ -195,40 +196,74 @@ class RecordWidget(QWidget):
 
     def __init__(self):
         super().__init__()
-        record_layout = QGridLayout()
+        self.current_phoneme = ""
+
+        record_layout = QVBoxLayout()
+        main_layout = QGridLayout()
+        button_control_layout = QHBoxLayout()
+        button_control_layout.setContentsMargins(10, 20, 10, 20)
+        title_layout = QHBoxLayout()
+
+        record_layout.addLayout(main_layout)
+        record_layout.addLayout(button_control_layout)
+        main_layout.addLayout(title_layout, 0, 0, 1, 2)
+        
+        left_placeholder = QWidget()
+        left_placeholder.setFixedWidth(200)
 
         title_label = QLabel("Record from Reclist")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
-        record_layout.addWidget(title_label, 0, 0, 1, 0)
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        
+        import_reclist_btn = QPushButton("Import Reclist...")
+        import_reclist_btn.setFixedWidth(200)
+        import_reclist_btn.pressed.connect(self.open_reclist_dialog)
 
-        self.current_reclist_line = QLabel("Current Reclist Line: N/A")
+        title_layout.addWidget(left_placeholder)
+        title_layout.addWidget(title_label, 1)
+        title_layout.addWidget(import_reclist_btn)
+
+        self.current_reclist_line = QLabel("N/A")
         self.current_reclist_line.setAlignment(Qt.AlignLeft)
         self.current_reclist_line.setStyleSheet("font-size: 30px; padding: 10px;")
-        record_layout.addWidget(self.current_reclist_line, 1, 0)
+        main_layout.addWidget(self.current_reclist_line, 1, 0, 1, 2)
 
         self.reclist_list = QTableWidget()
         self.reclist_list.setColumnCount(2)
         self.reclist_list.setHorizontalHeaderLabels(["Recorded", "Phoneme"])
         self.reclist_list.horizontalHeader().setStretchLastSection(True)
         self.reclist_list.setEditTriggers(QTableWidget.NoEditTriggers)
-        record_layout.addWidget(self.reclist_list, 2, 0)
+        self.reclist_list.setFixedWidth(350)
+        self.reclist_list.setSelectionBehavior(QTableWidget.SelectRows)
+        self.reclist_list.selectionModel().selectionChanged.connect(self.reclist_line_clicked)
+        main_layout.addWidget(self.reclist_list, 2, 0)
 
         self.audio_visualizer = pg.PlotWidget()
         self.audio_visualizer.setBackground('w')
         self.audio_visualizer.setTitle("Audio Visualizer", color="#000000", size="10pt")
         self.audio_visualizer.setLabel('left', 'Amplitude', color='#000000', size='14pt')
         self.audio_visualizer.setLabel('bottom', 'Time', color='#000000', size='14pt')
-        record_layout.addWidget(self.audio_visualizer, 2, 1)
+        self.audio_visualizer.getViewBox().setMouseEnabled(x=False, y=False)
+        main_layout.addWidget(self.audio_visualizer, 2, 1)
+
+        button_control_layout.addStretch(1)
+
+        previous_line_btn = QPushButton("<")
+        previous_line_btn.setFixedSize(QSize(50,50))
+        previous_line_btn.pressed.connect(self.previous_line_btn)
+        button_control_layout.addWidget(previous_line_btn)
 
         record_line_btn = QPushButton("Record")
-        record_line_btn.setFixedWidth(200)
-        record_layout.addWidget(record_line_btn, 3, 0)
+        record_line_btn.setFixedSize(QSize(100,70))
+        record_line_btn.pressed.connect(self.record_line_btn)
+        button_control_layout.addWidget(record_line_btn)
 
-        import_reclist_btn = QPushButton("Import Reclist...")
-        import_reclist_btn.setFixedWidth(200)
-        record_layout.addWidget(import_reclist_btn, 3, 1)
-        import_reclist_btn.pressed.connect(self.import_reclist)
+        next_line_btn = QPushButton(">")
+        next_line_btn.setFixedSize(QSize(50,50))
+        next_line_btn.pressed.connect(self.next_line_btn)
+        button_control_layout.addWidget(next_line_btn)
+
+        button_control_layout.addStretch(1)
 
         self.setLayout(record_layout)
 
@@ -241,26 +276,65 @@ class RecordWidget(QWidget):
         dlg_layout.addWidget(error_label)
         dlg.setLayout(dlg_layout)
         btn = dlg.exec()
+
+    def record_line_btn(self):
+        selected_items = self.reclist_list.selectedItems()
+        if selected_items:
+            current_row = self.reclist_list.currentRow()
+            phoneme = self.reclist_list.item(current_row, 1).text()
+            print(f"Recording line for phoneme: {phoneme}")
+            # Here you would add the actual recording logic
+            self.reclist_list.setItem(current_row, 0, QTableWidgetItem("Yes"))
+
+    def next_line_btn(self):
+        selected_items = self.reclist_list.selectedItems()
+        if selected_items:
+            current_row = self.reclist_list.currentRow()
+            next_row = current_row + 1
+            if next_row < self.reclist_list.rowCount():
+                self.reclist_list.selectRow(next_row)
+                self.current_phoneme = self.reclist_list.item(next_row, 1).text()
+                self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
     
-    def import_reclist(self):
+    def previous_line_btn(self):
+        selected_items = self.reclist_list.selectedItems()
+        if selected_items:
+            current_row = self.reclist_list.currentRow()
+            previous_row = current_row - 1
+            if previous_row >= 0:
+                self.reclist_list.selectRow(previous_row)
+                self.current_phoneme = self.reclist_list.item(previous_row, 1).text()
+                self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
+
+    def reclist_line_clicked(self):
+        selected_items = self.reclist_list.selectedItems()
+        if selected_items:
+            self.current_phoneme = selected_items[1].text()
+            self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
+    
+    def open_reclist_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Import Reclist", os.path.expanduser(""), "Text Files (*.txt)")
-        if not file_path:
-            self.error_dialog("No file selected. Please select a valid reclist file.")
+        if file_path:
+            self.load_reclist(file_path)
+
+    def load_reclist(self, reclist_path):
+        with open(reclist_path, "r", encoding="utf-8") as f:
+            reclist_lines = [line.strip() for line in f if line.strip()]
+        self.reclist_list.setRowCount(len(reclist_lines))
+
+        for i, line in enumerate(reclist_lines):
+            recorded_item = QTableWidgetItem("No")
+            phoneme_item = QTableWidgetItem(line)
+            self.reclist_list.setItem(i, 0, recorded_item)
+            self.reclist_list.setItem(i, 1, phoneme_item)
+        
+        if reclist_lines:
+            self.reclist_list.selectRow(0)
+            self.current_phoneme = reclist_lines[0]
+            self.current_reclist_line.setText(f"{reclist_lines[0]}")
         else:
-            # Import reclist file and populate table
-            reslist_path, _ = QFileDialog.getOpenFileName(self, "Select Reclist file", os.path.expanduser(""), "Text Files (*.txt)")
-
-            with open(reslist_path, "r", encoding="utf-8") as f:
-                reclist_lines = [line.strip() for line in f if line.strip()]
-            self.reclist_list.setRowCount(len(reclist_lines))
-
-            for i, line in enumerate(reclist_lines):
-                recorded_item = QTableWidgetItem("No")
-                phoneme_item = QTableWidgetItem(line)
-                self.reclist_list.setItem(i, 0, recorded_item)
-                self.reclist_list.setItem(i, 1, phoneme_item)
-            
-            self.current_reclist_line.setText(f"Current Reclist Line: {reclist_lines[0] if reclist_lines else 'N/A'}")
+            self.current_phoneme = ""
+            self.current_reclist_line.setText("N/A")
 
 class MainWindow(QMainWindow):
     def __init__(self):
