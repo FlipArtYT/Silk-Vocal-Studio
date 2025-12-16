@@ -190,7 +190,7 @@ class CreateBaseFolderWidget(QWidget):
         dlg = QMessageBox(self)
         dlg.setIcon(QMessageBox.Critical)
         dlg.setWindowTitle("Error")
-        dlg.setText(f"An Error occured: {" "*40}") # Added spacing at end because QMessageBox isn't easily resizable
+        dlg.setText(f"An Error occured: {' '*40}") # Added spacing at end because QMessageBox isn't easily resizable
         dlg.setInformativeText(message)
         dlg.setStandardButtons(QMessageBox.Ok)
         dlg.exec_()
@@ -579,7 +579,7 @@ class RecordWidget(QWidget):
         dlg = QMessageBox(self)
         dlg.setIcon(QMessageBox.Critical)
         dlg.setWindowTitle("Error")
-        dlg.setText(f"An Error occured: {" "*40}")
+        dlg.setText(f"An Error occured: {' '*40}")
         dlg.setInformativeText(message)
         dlg.setStandardButtons(QMessageBox.Ok)
         dlg.exec_()
