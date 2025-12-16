@@ -4,8 +4,9 @@ All-in-One Python GUI for easily creating CV / CVVC / VCV voicebanks for the voc
 ## Features
 - Simple but modern PyQT5 GUI
 - Create base folder with sample folder and `character.txt` for voicebank info [✅]
-- Recording from a `reclist.txt` file [⏲️]
-- Recording visualisation with `pyqtgraph` [⏲️]
+- Recording from a `reclist.txt` file [✅]
+- Recording visualisation with `pyqtgraph` [✅]
+- GuideBGM support [❌]
 - Automatic configuration of oto.ini file [❌]
 - Packaging to zip [⏲️]
 
