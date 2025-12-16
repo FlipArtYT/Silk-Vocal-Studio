@@ -27,15 +27,19 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QTableWidget,
     QTableWidgetItem,
+    QMessageBox
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QIcon
 from pathlib import Path
 import shutil
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets
+from pyqtgraph.Qt import QtWidgets, QtCore
 import numpy as np
+import pyaudio
 import webbrowser
+import wave
+import queue
 
 # Define Constants
 WINDOW_MINWIDTH, WINDOW_MINHEIGHT = 640, 480
@@ -44,9 +48,10 @@ VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class VoicebankInfo:
-    def __init__(self, name="", folder_path="", author="", voice="", pitch="A4", version="1.0", website="", cover_path=""):
+    def __init__(self, name="", folder_path="", samples_path="", author="", voice="", pitch="A4", version="1.0", website="", cover_path=""):
         self.name = name
         self.folder_path = folder_path
+        self.samples_path = samples_path
         self.author = author
         self.voice = voice
         self.pitch = pitch
@@ -182,21 +187,35 @@ class CreateBaseFolderWidget(QWidget):
         
 
     def error_dialog(self, message):
-        dlg = QDialog(self)
+        dlg = QMessageBox(self)
+        dlg.setIcon(QMessageBox.Critical)
         dlg.setWindowTitle("Error")
-        dlg_layout = QVBoxLayout()
-        error_label = QLabel(message)
-        error_label.setAlignment(Qt.AlignCenter)
-        dlg_layout.addWidget(error_label)
-        dlg.setLayout(dlg_layout)
-        btn = dlg.exec()
+        dlg.setText(f"An Error occured: {" "*40}") # Added spacing at end because QMessageBox isn't easily resizable
+        dlg.setInformativeText(message)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
 
 class RecordWidget(QWidget):
     back_to_main_menu = pyqtSignal()
 
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 44100
+
     def __init__(self):
         super().__init__()
+        self.vbinfo = VoicebankInfo()
         self.current_phoneme = ""
+        self.current_loaded_reclist = []
+        self.currently_recording = False
+
+        # Intitialise pyaudio
+        self.p = pyaudio.PyAudio()
+        self.stream = None
+        self.data_queue = queue.Queue()
+        self.frames = []
+        self.plot_data = np.array([])
 
         record_layout = QVBoxLayout()
         main_layout = QGridLayout()
@@ -207,19 +226,20 @@ class RecordWidget(QWidget):
         record_layout.addLayout(main_layout)
         record_layout.addLayout(button_control_layout)
         main_layout.addLayout(title_layout, 0, 0, 1, 2)
-        
-        left_placeholder = QWidget()
-        left_placeholder.setFixedWidth(200)
 
         title_label = QLabel("Record from Reclist")
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+
+        choose_samplespath_btn = QPushButton("Choose Voicebank Samples Path...")
+        choose_samplespath_btn.setFixedWidth(250)
+        choose_samplespath_btn.pressed.connect(self.open_samplepath_dialog)
         
         import_reclist_btn = QPushButton("Import Reclist...")
-        import_reclist_btn.setFixedWidth(200)
+        import_reclist_btn.setFixedWidth(250)
         import_reclist_btn.pressed.connect(self.open_reclist_dialog)
 
-        title_layout.addWidget(left_placeholder)
+        title_layout.addWidget(choose_samplespath_btn)
         title_layout.addWidget(title_label, 1)
         title_layout.addWidget(import_reclist_btn)
 
@@ -253,10 +273,10 @@ class RecordWidget(QWidget):
         previous_line_btn.pressed.connect(self.previous_line_btn)
         button_control_layout.addWidget(previous_line_btn)
 
-        record_line_btn = QPushButton("Record")
-        record_line_btn.setFixedSize(QSize(100,70))
-        record_line_btn.pressed.connect(self.record_line_btn)
-        button_control_layout.addWidget(record_line_btn)
+        self.record_line_btn = QPushButton("Record")
+        self.record_line_btn.setFixedSize(QSize(100,70))
+        self.record_line_btn.pressed.connect(self.record_toggle)
+        button_control_layout.addWidget(self.record_line_btn)
 
         next_line_btn = QPushButton(">")
         next_line_btn.setFixedSize(QSize(50,50))
@@ -265,76 +285,304 @@ class RecordWidget(QWidget):
 
         button_control_layout.addStretch(1)
 
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_graph)
+        self.timer.setInterval(25) 
+
         self.setLayout(record_layout)
 
-    def error_dialog(self, message):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Error")
-        dlg_layout = QVBoxLayout()
-        error_label = QLabel(message)
-        error_label.setAlignment(Qt.AlignCenter)
-        dlg_layout.addWidget(error_label)
-        dlg.setLayout(dlg_layout)
-        btn = dlg.exec()
 
-    def record_line_btn(self):
+    def update_phoneme_table(self):
+        # Set table dimensions
+        self.reclist_list.setRowCount(len(self.current_loaded_reclist))
+
+        # Populate the table with phonemes and their recorded status
+        for row, (phoneme, recorded) in enumerate(self.current_loaded_reclist):
+            recorded_item = QTableWidgetItem(recorded)
+            phoneme_item = QTableWidgetItem(phoneme)
+            
+            # Center the "Recorded" status for better readability
+            recorded_item.setTextAlignment(Qt.AlignCenter)
+
+            self.reclist_list.setItem(row, 0, recorded_item)
+            self.reclist_list.setItem(row, 1, phoneme_item)
+
+    def update_graph(self):
+        # This runs in the main UI thread
+        new_data_chunks = []
+        
+        # 1. Pull all available data from the queue
+        while not self.data_queue.empty():
+            try:
+                new_data_chunks.append(self.data_queue.get(timeout=0))
+            except queue.Empty:
+                break
+        
+        if not new_data_chunks:
+            return # No new data to plot
+
+        # 2. Convert and append the new data
+        data_buffer = b''.join(new_data_chunks)
+        chunk_data = np.frombuffer(data_buffer, dtype=np.int16)
+        
+        self.plot_data = np.concatenate((self.plot_data, chunk_data))
+        
+        # 3. Update the plot curve
+        self.curve.setData(self.plot_data)
+        
+        # 4. Auto-ranging (Improved)
+        if len(self.plot_data) > 0:
+            # Only update Y-range if there's actual signal
+            max_val = np.amax(np.abs(self.plot_data))
+            if max_val > 0:
+                # Set Y-range symmetrically around 0 based on max amplitude
+                self.audio_visualizer.setYRange(-max_val * 1.05, max_val * 1.05)
+
+    def check_and_load_wav(self, phoneme):
+        """
+        Checks if the WAV file for the given phoneme exists and loads its waveform.
+        Returns True if file exists and is loaded, False otherwise.
+        """
+        if not self.vbinfo.samples_path:
+            return False
+
+        wav_path = os.path.join(self.vbinfo.samples_path, f"{phoneme}.wav")
+        
+        # 1. Check if file exists
+        if not os.path.exists(wav_path):
+            self.audio_visualizer.clear()
+            self.curve.setData(np.array([]))
+            self.audio_visualizer.setTitle("Audio Visualizer - **File Not Found**", color="#cc0000", size="10pt")
+            return False
+
+        # 2. File exists, try to load
+        try:
+            with wave.open(wav_path, 'rb') as wf:
+                # Basic check for compatibility
+                if wf.getnchannels() != self.CHANNELS or wf.getsampwidth() != self.p.get_sample_size(self.FORMAT) or wf.getframerate() != self.RATE:
+                    print("Warning: WAV file format mismatch.")
+                
+                n_frames = wf.getnframes()
+                audio_data = wf.readframes(n_frames)
+                audio_array = np.frombuffer(audio_data, dtype=np.int16)
+                
+                # Update visualizer with loaded data
+                self.audio_visualizer.clear()
+                self.curve = self.audio_visualizer.plot(pen=pg.mkPen(color='b', width=1))
+                self.curve.setData(audio_array)
+                
+                # Set range for the loaded file
+                max_val = np.amax(np.abs(audio_array))
+                if max_val > 0:
+                    self.audio_visualizer.setYRange(-max_val * 1.05, max_val * 1.05)
+                
+                # Set X-range to show the full file
+                self.audio_visualizer.setXRange(0, len(audio_array))
+                self.audio_visualizer.setTitle(f"Audio Visualizer - Loaded: **{phoneme}.wav**", color="#000000", size="10pt")
+
+                return True
+        except Exception as e:
+            print(f"Error loading WAV file {wav_path}: {e}")
+            self.audio_visualizer.clear()
+            self.curve.setData(np.array([]))
+            self.audio_visualizer.setTitle("Audio Visualizer - **Error Loading File**", color="#cc0000", size="10pt")
+            return False
+
+    def record_toggle(self):
+        if not self.vbinfo.samples_path:
+            self.error_dialog("Please select a voicebank sample path.")
+        elif len(self.current_loaded_reclist) == 0:
+            self.error_dialog("Please select a reclist")
+
         selected_items = self.reclist_list.selectedItems()
         if selected_items:
             current_row = self.reclist_list.currentRow()
-            phoneme = self.reclist_list.item(current_row, 1).text()
-            print(f"Recording line for phoneme: {phoneme}")
-            # Here you would add the actual recording logic
-            self.reclist_list.setItem(current_row, 0, QTableWidgetItem("Yes"))
+            if not self.currently_recording:
+                self.start_recording()
+            else:
+                self.stop_recording()
+                self.current_loaded_reclist[current_row][1] = "Yes"
+                self.update_phoneme_table()
+
+    def audio_callback(self, in_data, frame_count, time_info, status):
+        # This runs in a separate PyAudio thread
+        self.data_queue.put(in_data) # Put data in the queue
+        self.frames.append(in_data)  # Append data to frames for final WAV file saving
+        return (in_data, pyaudio.paContinue)
+
+    def start_recording(self):
+        print(f"Started recording. Phoneme: {self.current_phoneme}")
+
+        # Reset Variables
+        self.frames = []
+        self.plot_data = np.array([])
+        self.audio_visualizer.clear()
+        self.curve = self.audio_visualizer.plot(pen=pg.mkPen(color='b', width=1))
+
+        # Open Audio Stream
+        self.stream = self.p.open(format=self.FORMAT,
+                                 channels=self.CHANNELS,
+                                 rate=self.RATE,
+                                 input=True,
+                                 frames_per_buffer=self.CHUNK,
+                                 stream_callback=self.audio_callback,
+                                 start=False)
+
+        self.stream.start_stream()
+        self.currently_recording = True
+        self.record_line_btn.setText("Stop")
+
+        self.timer.start()
+
+    def stop_recording(self):
+        if not self.currently_recording:
+            return
+        
+        print(f"{self.current_phoneme} stopping recording")
+        
+        self.timer.stop() 
+        self.currently_recording = False
+        self.record_line_btn.setText("Record")
+
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+            self.stream = None
+
+        self.save_wav_file()
+
+    def save_wav_file(self):
+        if not self.frames:
+            print("No frames recorded to save.")
+            return
+        
+        self.WAVE_OUTPUT_FILENAME = os.path.join(self.vbinfo.samples_path, f"{self.current_phoneme}.wav")
+
+        print(f"Saving to {self.WAVE_OUTPUT_FILENAME}")
+        wf = wave.open(self.WAVE_OUTPUT_FILENAME, 'wb')
+        wf.setnchannels(self.CHANNELS)
+        wf.setsampwidth(self.p.get_sample_size(self.FORMAT))
+        wf.setframerate(self.RATE)
+        wf.writeframes(b''.join(self.frames))
+        wf.close()
+
+    def closeEvent(self, event):
+        if self.stream:
+            self.stop_recording()
+        self.p.terminate()
+        super().closeEvent(event)
 
     def next_line_btn(self):
+        if self.currently_recording:
+            return
+
         selected_items = self.reclist_list.selectedItems()
         if selected_items:
             current_row = self.reclist_list.currentRow()
             next_row = current_row + 1
             if next_row < self.reclist_list.rowCount():
                 self.reclist_list.selectRow(next_row)
-                self.current_phoneme = self.reclist_list.item(next_row, 1).text()
-                self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
     
     def previous_line_btn(self):
+        if self.currently_recording:
+            return
+        
         selected_items = self.reclist_list.selectedItems()
         if selected_items:
             current_row = self.reclist_list.currentRow()
             previous_row = current_row - 1
             if previous_row >= 0:
                 self.reclist_list.selectRow(previous_row)
-                self.current_phoneme = self.reclist_list.item(previous_row, 1).text()
-                self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
 
     def reclist_line_clicked(self):
-        selected_items = self.reclist_list.selectedItems()
-        if selected_items:
-            self.current_phoneme = selected_items[1].text()
-            self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
+        # Stop immediate action if currently recording
+        if self.currently_recording:
+            return
+
+        selected_indexes = self.reclist_list.selectionModel().selectedRows()
+        if selected_indexes:
+            current_row = selected_indexes[0].row()
+            
+            # Get the phoneme from the selected row
+            phoneme_item = self.reclist_list.item(current_row, 1)
+            if phoneme_item:
+                self.current_phoneme = phoneme_item.text()
+                self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
+
+                # Check if the file exists and update the 'Recorded' status
+                file_exists = self.check_and_load_wav(self.current_phoneme)
+                
+                # Update table data structure and table item
+                if file_exists:
+                    self.current_loaded_reclist[current_row][1] = "Yes"
+                    self.reclist_list.item(current_row, 0).setText("Yes")
+                else:
+                    self.current_loaded_reclist[current_row][1] = "No"
+                    self.reclist_list.item(current_row, 0).setText("No")
+                
+                # Ensure the selection model updates to the correct row if the signal was delayed or re-emitted
+                self.reclist_list.selectRow(current_row)
+
+        else:
+            self.current_phoneme = ""
+            self.current_reclist_line.setText("N/A")
+            self.audio_visualizer.clear()
+            self.curve.setData(np.array([]))
+            self.audio_visualizer.setTitle("Audio Visualizer", color="#000000", size="10pt")
     
     def open_reclist_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Import Reclist", os.path.expanduser(""), "Text Files (*.txt)")
         if file_path:
             self.load_reclist(file_path)
 
-    def load_reclist(self, reclist_path):
-        with open(reclist_path, "r", encoding="utf-8") as f:
-            reclist_lines = [line.strip() for line in f if line.strip()]
-        self.reclist_list.setRowCount(len(reclist_lines))
+    def open_samplepath_dialog(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Select Voicebank Samples Folder Path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
+        if folder_path:
+            self.vbinfo.samples_path = folder_path
 
-        for i, line in enumerate(reclist_lines):
-            recorded_item = QTableWidgetItem("No")
-            phoneme_item = QTableWidgetItem(line)
-            self.reclist_list.setItem(i, 0, recorded_item)
-            self.reclist_list.setItem(i, 1, phoneme_item)
+
+    def load_reclist(self, reclist_path):
+        self.current_loaded_reclist = [] # Clear existing list
         
-        if reclist_lines:
+        # 1. Load the raw list from file
+        with open(reclist_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    # Initially mark as "No"
+                    self.current_loaded_reclist.append([line, "No"]) 
+
+        # 2. Check existence against samples_path (if set)
+        if self.vbinfo.samples_path:
+            for item in self.current_loaded_reclist:
+                phoneme = item[0]
+                wav_path = os.path.join(self.vbinfo.samples_path, f"{phoneme}.wav")
+                if os.path.exists(wav_path):
+                    item[1] = "Yes" # Update status to "Yes"
+
+        # 3. Update the table UI
+        self.update_phoneme_table()
+        
+        # 4. Select the first item and display its status/waveform
+        if self.current_loaded_reclist:
             self.reclist_list.selectRow(0)
-            self.current_phoneme = reclist_lines[0]
-            self.current_reclist_line.setText(f"{reclist_lines[0]}")
+            # Manually trigger the click logic for the first item
+            self.reclist_line_clicked() 
         else:
             self.current_phoneme = ""
             self.current_reclist_line.setText("N/A")
+            self.audio_visualizer.clear()
+            self.curve.setData(np.array([]))
+            self.audio_visualizer.setTitle("Audio Visualizer", color="#000000", size="10pt")
+
+    def error_dialog(self, message):
+        dlg = QMessageBox(self)
+        dlg.setIcon(QMessageBox.Critical)
+        dlg.setWindowTitle("Error")
+        dlg.setText(f"An Error occured: {" "*40}")
+        dlg.setInformativeText(message)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
 
 class MainWindow(QMainWindow):
     def __init__(self):
