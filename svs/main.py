@@ -40,12 +40,33 @@ import pyaudio
 import webbrowser
 import wave
 import queue
+import json
 
 # Define Constants
 WINDOW_MINWIDTH, WINDOW_MINHEIGHT = 640, 480
 WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT = 960, 720
 VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Load Settings JSON
+settings_path = "settings.json"
+default_settings = {
+    "default_reclist_path":None,
+    "guide_bgm_path":None
+}
+
+default_reclist_path = None
+guide_bgm_path = None
+
+if os.path.exists(settings_path):
+    with open(settings_path, "r") as f:
+        d = json.load(f)
+        default_reclist_path = d["default_reclist_path"]
+        guide_bgm_path = d["guide_bgm_path"]
+else:
+    with open(settings_path, "w") as f:
+        json.dump(default_settings, f, indent=4)
+        
 
 class VoicebankInfo:
     def __init__(self, name="", folder_path="", samples_path="", author="", voice="", pitch="A4", version="1.0", website="", cover_path=""):
@@ -620,6 +641,7 @@ class MainWindow(QMainWindow):
         # Add Toolbar with File, Help options
         menubar = self.menuBar()
         fileMenu = menubar.addMenu("File")
+        setttingsMenu = menubar.addMenu("Settings")
         helpMenu = menubar.addMenu("Help")
 
         # Add actions to File menu
@@ -644,6 +666,11 @@ class MainWindow(QMainWindow):
         newPackageAction = fileMenu.addAction("Package voicebank to zip")
         newPackageAction.triggered.connect(self.package_voicebank)
         fileMenu.addAction(newPackageAction)
+
+        # Add actions to the Settings menu
+        settingsAction = setttingsMenu.addAction("Program Settings")
+        settingsAction.triggered.connect(self.show_settings_dialog)
+        setttingsMenu.addAction(settingsAction)
 
         # Add actions to Help menu
         documentationAction = helpMenu.addAction("Project Page")
@@ -710,6 +737,28 @@ class MainWindow(QMainWindow):
         print("Package voicebank to zip button pressed")
 
     # Define menu actions
+    def show_settings_dialog(self):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Program Settings")
+        dlg.resize(480, 360)
+        dlg_layout = QFormLayout()
+
+        self.title_label = QLabel("Program Settings")
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px")
+        dlg_layout.addRow(self.title_label)
+
+        self.default_reclist_path_button = QPushButton("Select...")
+        self.default_reclist_path_button.pressed.connect(self.reclist_select_dialog)
+        self.default_reclist_path_button.setFixedWidth(200)
+        dlg_layout.addRow("Default reclist path: ", self.default_reclist_path_button)
+
+        dlg.setLayout(dlg_layout)
+        btn = dlg.exec()
+
+    def reclist_select_dialog(self):
+        print("Reclist Select Dialog")
+
     def show_about_dialog(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("About Silk Vocal Studio")

@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 plan.txt
 pyaudio_test.py
+settings.json
