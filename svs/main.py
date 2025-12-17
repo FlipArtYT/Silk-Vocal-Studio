@@ -27,7 +27,8 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QTableWidget,
     QTableWidgetItem,
-    QMessageBox
+    QMessageBox,
+    QDialogButtonBox
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QIcon
@@ -49,23 +50,32 @@ VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Load Settings JSON
-settings_path = "settings.json"
+settings_path = os.path.join(SCRIPT_DIR, "config", "settings.json")
 default_settings = {
-    "default_reclist_path":None,
-    "guide_bgm_path":None
+    "default_reclist_path":"",
+    "default_guidebgm_path":"",
+    "default_vb_pitch":"A4",
 }
 
-default_reclist_path = None
-guide_bgm_path = None
+default_reclist_path = "~/Documents/reclist.txt"
+default_guidebgm_path = "~/Documents/guidebgm.wav"
+default_vb_pitch = "A4"
 
 if os.path.exists(settings_path):
     with open(settings_path, "r") as f:
         d = json.load(f)
-        default_reclist_path = d["default_reclist_path"]
-        guide_bgm_path = d["guide_bgm_path"]
+
+        if d["default_reclist_path"] and d["default_guidebgm_path"] and d["default_vb_pitch"]:
+            default_reclist_path = d["default_reclist_path"]
+            guide_bgm_path = d["default_guidebgm_path"]
+            default_vb_pitch = d["default_vb_pitch"]
+        else:
+            print("Failed to read settings.json file. \nPlease delete the settings.json file and reopen this program to create a new settings.json file.")
 else:
     with open(settings_path, "w") as f:
         json.dump(default_settings, f, indent=4)
+
+    print("Created settings.json file.")
         
 
 class VoicebankInfo:
@@ -102,7 +112,7 @@ class CreateBaseFolderWidget(QWidget):
         content_layout.addRow(title_label)
 
         create_voicebank_folder_at_btn = QPushButton("Select Path...")
-        create_voicebank_folder_at_btn.pressed.connect(self.select_voicebank_folder)
+        create_voicebank_folder_at_btn.clicked.connect(self.select_voicebank_folder)
         create_voicebank_folder_at_btn.setFixedWidth(200)
         content_layout.addRow("Voicebank folder path:", create_voicebank_folder_at_btn)
 
@@ -121,16 +131,16 @@ class CreateBaseFolderWidget(QWidget):
         self.voicebank_pitch_input = QComboBox()
         pitches = [f"{note}{octave}" for octave in range(2, 6) for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
         self.voicebank_pitch_input.addItems(pitches)
-        self.voicebank_pitch_input.setCurrentText("A4")
+        self.voicebank_pitch_input.setCurrentText(default_vb_pitch)
         content_layout.addRow("Voicebank Pitch:", self.voicebank_pitch_input)
 
         self.voicebank_cover_path_btn = QPushButton("Select Cover Image (optional)...")
-        self.voicebank_cover_path_btn.pressed.connect(self.select_cover_image)
+        self.voicebank_cover_path_btn.clicked.connect(self.select_cover_image)
         self.voicebank_cover_path_btn.setFixedWidth(300)
         content_layout.addRow("Voicebank Cover Image:", self.voicebank_cover_path_btn)
 
         create_button = QPushButton("Create Base Folder")
-        create_button.pressed.connect(self.create_base_folder)
+        create_button.clicked.connect(self.create_base_folder)
         button_box.addWidget(create_button)
 
         self.setLayout(base_folder_layout)
@@ -254,11 +264,11 @@ class RecordWidget(QWidget):
 
         choose_samplespath_btn = QPushButton("Choose Voicebank Samples Path...")
         choose_samplespath_btn.setFixedWidth(250)
-        choose_samplespath_btn.pressed.connect(self.open_samplepath_dialog)
+        choose_samplespath_btn.clicked.connect(self.open_samplepath_dialog)
         
         import_reclist_btn = QPushButton("Import Reclist...")
         import_reclist_btn.setFixedWidth(250)
-        import_reclist_btn.pressed.connect(self.open_reclist_dialog)
+        import_reclist_btn.clicked.connect(self.open_reclist_dialog)
 
         title_layout.addWidget(choose_samplespath_btn)
         title_layout.addWidget(title_label, 1)
@@ -291,17 +301,17 @@ class RecordWidget(QWidget):
 
         previous_line_btn = QPushButton("<")
         previous_line_btn.setFixedSize(QSize(50,50))
-        previous_line_btn.pressed.connect(self.previous_line_btn)
+        previous_line_btn.clicked.connect(self.previous_line_btn)
         button_control_layout.addWidget(previous_line_btn)
 
         self.record_line_btn = QPushButton("Record")
         self.record_line_btn.setFixedSize(QSize(100,70))
-        self.record_line_btn.pressed.connect(self.record_toggle)
+        self.record_line_btn.clicked.connect(self.record_toggle)
         button_control_layout.addWidget(self.record_line_btn)
 
         next_line_btn = QPushButton(">")
         next_line_btn.setFixedSize(QSize(50,50))
-        next_line_btn.pressed.connect(self.next_line_btn)
+        next_line_btn.clicked.connect(self.next_line_btn)
         button_control_layout.addWidget(next_line_btn)
 
         button_control_layout.addStretch(1)
@@ -667,6 +677,12 @@ class MainWindow(QMainWindow):
         newPackageAction.triggered.connect(self.package_voicebank)
         fileMenu.addAction(newPackageAction)
 
+        fileMenu.addSeparator()
+
+        quitAction = fileMenu.addAction("Quit")
+        quitAction.triggered.connect(lambda: sys.exit(self))
+        fileMenu.addAction(quitAction)
+
         # Add actions to the Settings menu
         settingsAction = setttingsMenu.addAction("Program Settings")
         settingsAction.triggered.connect(self.show_settings_dialog)
@@ -690,27 +706,27 @@ class MainWindow(QMainWindow):
 
         self.new_project_btn = QPushButton("New Project")
         self.new_project_btn.setFixedWidth(500)
-        self.new_project_btn.pressed.connect(self.new_project)
+        self.new_project_btn.clicked.connect(self.new_project)
         self.button_box.addWidget(self.new_project_btn, alignment=Qt.AlignHCenter)
         
         self.new_bfolder_btn = QPushButton("Create base voicebank folder")
         self.new_bfolder_btn.setFixedWidth(500)
-        self.new_bfolder_btn.pressed.connect(self.create_base_folder)
+        self.new_bfolder_btn.clicked.connect(self.create_base_folder)
         self.button_box.addWidget(self.new_bfolder_btn, alignment=Qt.AlignHCenter)
         
         self.new_record_btn = QPushButton("Record from Reclist")
         self.new_record_btn.setFixedWidth(500)
-        self.new_record_btn.pressed.connect(self.record_from_reclist)
+        self.new_record_btn.clicked.connect(self.record_from_reclist)
         self.button_box.addWidget(self.new_record_btn, alignment=Qt.AlignHCenter)
 
         self.new_oto_btn = QPushButton("Configure oto.ini")
         self.new_oto_btn.setFixedWidth(500)
-        self.new_oto_btn.pressed.connect(self.configure_oto)
+        self.new_oto_btn.clicked.connect(self.configure_oto)
         self.button_box.addWidget(self.new_oto_btn, alignment=Qt.AlignHCenter)
 
         self.new_package_btn = QPushButton("Package voicebank to zip")
         self.new_package_btn.setFixedWidth(500)
-        self.new_package_btn.pressed.connect(self.package_voicebank)
+        self.new_package_btn.clicked.connect(self.package_voicebank)
         self.button_box.addWidget(self.new_package_btn, alignment=Qt.AlignHCenter)
                
         widget = QWidget()
@@ -740,24 +756,93 @@ class MainWindow(QMainWindow):
     def show_settings_dialog(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("Program Settings")
-        dlg.resize(480, 360)
-        dlg_layout = QFormLayout()
+        dlg.setFixedSize(QSize(480, 360))
+
+        main_layout = QVBoxLayout()
+        settings_layout = QFormLayout()
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dlg.accept)
+        button_box.rejected.connect(dlg.reject)
 
         self.title_label = QLabel("Program Settings")
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px")
-        dlg_layout.addRow(self.title_label)
+        settings_layout.addRow(self.title_label)
+
+        self.default_reclist_path_label = QLabel(f"Default reclist path: {default_reclist_path[:5] + '...'}")
+        self.default_reclist_path_label.setToolTip(default_reclist_path)
 
         self.default_reclist_path_button = QPushButton("Select...")
-        self.default_reclist_path_button.pressed.connect(self.reclist_select_dialog)
+        self.default_reclist_path_button.clicked.connect(self.reclist_select_dialog)
         self.default_reclist_path_button.setFixedWidth(200)
-        dlg_layout.addRow("Default reclist path: ", self.default_reclist_path_button)
 
-        dlg.setLayout(dlg_layout)
-        btn = dlg.exec()
+        self.default_guidebgm_path_label = QLabel(f"Default GuideBGM path: {default_guidebgm_path[:5] + '...'}")
+        self.default_guidebgm_path_label.setToolTip(default_guidebgm_path)
+
+        self.default_guidebgm_path_button = QPushButton("Select...")
+        self.default_guidebgm_path_button.clicked.connect(self.guidebgm_select_dialog)
+        self.default_guidebgm_path_button.setFixedWidth(200)
+
+        self.default_vb_pitch_input = QComboBox()
+        pitches = [f"{note}{octave}" for octave in range(2, 6) for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
+        self.default_vb_pitch_input.addItems(pitches)
+        self.default_vb_pitch_input.setCurrentText(default_vb_pitch)
+
+        settings_layout.addRow(self.default_reclist_path_label, self.default_reclist_path_button)
+        settings_layout.addRow(self.default_guidebgm_path_label, self.default_guidebgm_path_button)
+        settings_layout.addRow("Default voicebank pitch: ", self.default_vb_pitch_input)
+
+        main_layout.addLayout(settings_layout)
+        main_layout.addWidget(button_box)
+
+        dlg.setLayout(main_layout)
+        if dlg.exec():
+            self.save_settings()
+        else:
+            print("Changes discarded.")
+
+    def save_settings(self):
+        global default_vb_pitch
+        default_vb_pitch = self.default_vb_pitch_input.currentText()
+
+        settings = {
+            "default_reclist_path":default_reclist_path,
+            "default_guidebgm_path":default_guidebgm_path,
+            "default_vb_pitch":default_vb_pitch
+        }
+            
+        with open(settings_path, "w") as f:
+            json.dump(settings, f, indent=4)
+
+        print("Settings saved successfully!")
+        self.info_dialog("The settings in this program will apply after you restart it.")
 
     def reclist_select_dialog(self):
-        print("Reclist Select Dialog")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Reclist Path", os.path.expanduser(""), "Text Files (*.txt)")
+        if file_path:
+            global default_reclist_path
+            default_reclist_path = file_path
+            display_path = (file_path[:5] + '...') if len(file_path) > 30 else file_path
+            self.default_reclist_path_label.setText(f"Default reclist path: {display_path}")
+            self.default_reclist_path_label.setToolTip(file_path)
+    
+    def guidebgm_select_dialog(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Guide BGM", os.path.expanduser(""), "Audio Files (*.wav)")
+        if file_path:
+            global default_guidebgm_path
+            default_guidebgm_path = file_path
+            display_path = (file_path[:5] + '...') if len(file_path) > 30 else file_path
+            self.default_guidebgm_path_label.setText(f"Default reclist path: {display_path}")
+            self.default_reclist_path_label.setToolTip(file_path)
+
+    def info_dialog(self, message):
+        dlg = QMessageBox(self)
+        dlg.setIcon(QMessageBox.Information)
+        dlg.setWindowTitle("Information")
+        dlg.setText(f"Info: {' '*40}")
+        dlg.setInformativeText(message)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
 
     def show_about_dialog(self):
         dlg = QDialog(self)
