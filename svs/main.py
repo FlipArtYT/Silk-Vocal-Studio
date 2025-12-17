@@ -4,7 +4,7 @@
 #- Simple but modern PyQT5 GUI
 #- Create base folder with sample folder and `character.txt` for voicebank info
 #- Recording from a `reclist.txt` file
-#- Recording visualisation with `matplotlib`
+#- Recording visualisation with `pyqtgraph`
 #- Automatic configuration of oto.ini file
 #- Packaging to zip
 
@@ -720,11 +720,13 @@ class MainWindow(QMainWindow):
         self.button_box.addWidget(self.new_record_btn, alignment=Qt.AlignHCenter)
 
         self.new_oto_btn = QPushButton("Configure oto.ini")
+        self.new_oto_btn.setEnabled(False)
         self.new_oto_btn.setFixedWidth(500)
         self.new_oto_btn.clicked.connect(self.configure_oto)
         self.button_box.addWidget(self.new_oto_btn, alignment=Qt.AlignHCenter)
 
         self.new_package_btn = QPushButton("Package voicebank to zip")
+        self.new_package_btn.setEnabled(False)
         self.new_package_btn.setFixedWidth(500)
         self.new_package_btn.clicked.connect(self.package_voicebank)
         self.button_box.addWidget(self.new_package_btn, alignment=Qt.AlignHCenter)
