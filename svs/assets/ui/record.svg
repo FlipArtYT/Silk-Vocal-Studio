@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="32"
+   viewBox="0 0 32 32"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="record.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="px"
+     showgrid="false"
+     inkscape:zoom="18.451068"
+     inkscape:cx="15.635951"
+     inkscape:cy="18.99619"
+     inkscape:window-width="1897"
+     inkscape:window-height="984"
+     inkscape:window-x="12"
+     inkscape:window-y="48"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient943">
+      <stop
+         style="stop-color:#ed0000;stop-opacity:1;"
+         offset="0"
+         id="stop939" />
+      <stop
+         style="stop-color:#ff7070;stop-opacity:1;"
+         offset="1"
+         id="stop941" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient943"
+       id="linearGradient945"
+       x1="1.3940881"
+       y1="16"
+       x2="30.605912"
+       y2="16"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <g
+     inkscape:label="Ebene 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <circle
+       style="opacity:1;fill:url(#linearGradient945);fill-opacity:1;stroke:#e30000;stroke-width:0.73299998;stroke-opacity:1;stroke-dasharray:none;stroke-linejoin:round;stroke-linecap:round"
+       id="path937"
+       cx="16"
+       cy="16"
+       r="14.389412" />
+  </g>
+</svg>
