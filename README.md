@@ -8,7 +8,7 @@ All-in-One Python GUI for easily creating CV / CVVC / VCV voicebanks for the voc
 - Recording visualisation with `pyqtgraph` [✅]
 - GuideBGM support [❌]
 - Automatic configuration of oto.ini file [❌]
-- Packaging to zip [⏲️]
+- Packaging to zip [✅]
 
 ✅: available<br>
 ❌: unavailable<br>
