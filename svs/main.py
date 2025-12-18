@@ -452,7 +452,6 @@ class RecordWidget(QWidget):
         dlg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
 
         if dlg.exec_():
-            global default_reclist_path
             if default_reclist_path or default_reclist_path == "":
                 self.load_reclist(default_reclist_path)
 
