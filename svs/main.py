@@ -4,7 +4,7 @@
 #- Simple but modern PyQT5 GUI
 #- Create base folder with sample folder and `character.txt` for voicebank info
 #- Recording from a `reclist.txt` file
-#- Recording visualisation with `pyqtgraph`
+#- Recording visualisation with `matplotlib`
 #- Automatic configuration of oto.ini file
 #- Packaging to zip
 
@@ -29,7 +29,8 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QMessageBox,
     QDialogButtonBox,
-    QSizePolicy
+    QSizePolicy,
+    QProgressBar
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QIcon
@@ -652,6 +653,54 @@ class ConfigureOtoWidget(QWidget):
 
     def __init__(self):
         super().__init__()
+
+        oto_layout = QGridLayout()
+        content_layout = QFormLayout()
+        status_layout = QVBoxLayout()
+        status_layout.setContentsMargins(0, 20, 0, 20)
+        button_box = QHBoxLayout()
+
+        # Add layouts
+        oto_layout.addLayout(content_layout, 0, 0, 1, 0)
+        oto_layout.addLayout(status_layout, 1, 0, 1, 0)
+        oto_layout.addLayout(button_box, 2, 1)
+
+        # Add content
+        title_label = QLabel("Create and configure voicebank's oto.ini file")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
+        content_layout.addRow(title_label)
+
+        create_oto_at_btn = QPushButton("Select...")
+        create_oto_at_btn.clicked.connect(self.select_oto_destination_folder)
+        create_oto_at_btn.setFixedWidth(200)
+        content_layout.addRow("Voicebank samples path:", create_oto_at_btn)
+
+        self.oto_progress = QProgressBar()
+        self.oto_progress.setRange(0, 100)
+        self.oto_progress.reset()
+        status_layout.addWidget(self.oto_progress)
+
+        self.oto_logs = QLineEdit()
+        self.oto_logs.setReadOnly(True)
+        self.oto_logs.setText("** OTO.INI CONFIGURATOR **")
+        self.oto_logs.setMinimumHeight(100)
+        self.oto_logs.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.oto_logs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        status_layout.addWidget(self.oto_logs)
+
+        config_oto_btn = QPushButton("Configure oto.ini file")
+        config_oto_btn.clicked.connect(self.configure_oto_file)
+        button_box.addWidget(config_oto_btn)
+
+        self.setLayout(oto_layout)
+
+    def select_oto_destination_folder(self):
+        # Select path to create the zip
+        self.destination_path = QFileDialog.getExistingDirectory(self, "Select voicebank samples path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
+
+    def configure_oto_file(self):
+        print("Configure oto.ini file")
 
 class PackageVoicebankWidget(QWidget):
     back_to_main_menu = pyqtSignal()
