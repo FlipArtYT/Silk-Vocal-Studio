@@ -91,94 +91,6 @@ class VoicebankInfo:
         self.website = website
         self.cover_path = cover_path
 
-class PackageVoicebankWidget(QWidget):
-    back_to_main_menu = pyqtSignal()
-
-    def __init__(self):
-        super().__init__()
-        self.vbinfo = VoicebankInfo()
-        self.zip_destination = ""
-
-        package_layout = QGridLayout()
-        content_layout = QFormLayout()
-        button_box = QHBoxLayout()
-
-        # Add layouts
-        package_layout.addLayout(content_layout, 0, 0, 1, 0)
-        package_layout.addLayout(button_box, 1, 1)
-
-        # Add content
-        title_label = QLabel("Package a voicebank folder")
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
-        content_layout.addRow(title_label)
-
-        voicebank_loc_btn = QPushButton("Select...")
-        voicebank_loc_btn.clicked.connect(self.select_voicebank_folder)
-        voicebank_loc_btn.setFixedWidth(200)
-        content_layout.addRow("Voicebank folder path:", voicebank_loc_btn)
-
-        final_zip_loc_btn = QPushButton("Select...")
-        final_zip_loc_btn.clicked.connect(self.select_destination_folder)
-        final_zip_loc_btn.setFixedWidth(200)
-        content_layout.addRow("Zip destination path:", final_zip_loc_btn)
-
-        create_button = QPushButton("Create zip of voicebank folder")
-        create_button.clicked.connect(self.create_voicebank_zip)
-        button_box.addWidget(create_button)
-
-        self.setLayout(package_layout)
-    
-    def select_voicebank_folder(self):
-        # Select path to create base voicebank folder
-        self.voicebank_folder_path = QFileDialog.getExistingDirectory(self, "Select Voicebank Folder Path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
-        if not self.voicebank_folder_path:
-            self.error_dialog("No folder selected. Please select a valid folder path.")
-        else:
-            self.vbinfo.folder_path = self.voicebank_folder_path
-    
-    def select_destination_folder(self):
-        # Select path to create the zip
-        self.destination_path = QFileDialog.getExistingDirectory(self, "Select zip destination path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
-        if not self.destination_path:
-            self.error_dialog("No folder selected. Please select a valid folder path.")
-        else:
-            self.zip_destination = self.destination_path
-
-    def create_voicebank_zip(self):
-        if not self.vbinfo.folder_path:
-            self.error_dialog("Voicebank folder path is not set. Please select a valid folder path.")
-        if self.zip_destination == "" or not self.zip_destination:
-            self.error_dialog("Zip destination folder path is not set. Please select a valid folder path.")
-
-        try:
-            base_vb_folder_path = os.path.basename(self.vbinfo.folder_path)
-            output_path = os.path.join(self.zip_destination, base_vb_folder_path)
-
-            shutil.make_archive(output_path, "zip", self.vbinfo.folder_path)
-            self.back_to_main_menu.emit()
-            self.info_dialog(f"Successfully created zip of the voicebank folder at {self.zip_destination}")
-        except Exception as e:
-            self.error_dialog(f"Error creating base voicebank folder: {str(e)}")
-
-    def error_dialog(self, message):
-        dlg = QMessageBox(self)
-        dlg.setIcon(QMessageBox.Critical)
-        dlg.setWindowTitle("Error")
-        dlg.setText(f"An Error occured: {' '*40}") # Added spacing at end because QMessageBox isn't easily resizable
-        dlg.setInformativeText(message)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        dlg.exec_()
-
-    def info_dialog(self, message):
-        dlg = QMessageBox(self)
-        dlg.setIcon(QMessageBox.Information)
-        dlg.setWindowTitle("Info")
-        dlg.setText(f"Information: {' '*40}")
-        dlg.setInformativeText(message)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        dlg.exec_()
-
 class CreateBaseFolderWidget(QWidget):
     back_to_main_menu = pyqtSignal()
 
@@ -735,6 +647,102 @@ class RecordWidget(QWidget):
         dlg.setStandardButtons(QMessageBox.Ok)
         dlg.exec_()
 
+class ConfigureOtoWidget(QWidget):
+    back_to_main_menu = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+
+class PackageVoicebankWidget(QWidget):
+    back_to_main_menu = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        self.vbinfo = VoicebankInfo()
+        self.zip_destination = ""
+
+        package_layout = QGridLayout()
+        content_layout = QFormLayout()
+        button_box = QHBoxLayout()
+
+        # Add layouts
+        package_layout.addLayout(content_layout, 0, 0, 1, 0)
+        package_layout.addLayout(button_box, 1, 1)
+
+        # Add content
+        title_label = QLabel("Package a voicebank folder")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
+        content_layout.addRow(title_label)
+
+        voicebank_loc_btn = QPushButton("Select...")
+        voicebank_loc_btn.clicked.connect(self.select_voicebank_folder)
+        voicebank_loc_btn.setFixedWidth(200)
+        content_layout.addRow("Voicebank folder path:", voicebank_loc_btn)
+
+        final_zip_loc_btn = QPushButton("Select...")
+        final_zip_loc_btn.clicked.connect(self.select_destination_folder)
+        final_zip_loc_btn.setFixedWidth(200)
+        content_layout.addRow("Zip destination path:", final_zip_loc_btn)
+
+        create_button = QPushButton("Create zip of voicebank folder")
+        create_button.clicked.connect(self.create_voicebank_zip)
+        button_box.addWidget(create_button)
+
+        self.setLayout(package_layout)
+    
+    def select_voicebank_folder(self):
+        # Select path to create base voicebank folder
+        self.voicebank_folder_path = QFileDialog.getExistingDirectory(self, "Select Voicebank Folder Path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
+        if not self.voicebank_folder_path:
+            self.error_dialog("No folder selected. Please select a valid folder path.")
+        else:
+            self.vbinfo.folder_path = self.voicebank_folder_path
+    
+    def select_destination_folder(self):
+        # Select path to create the zip
+        self.destination_path = QFileDialog.getExistingDirectory(self, "Select zip destination path", os.path.expanduser(""), QFileDialog.ShowDirsOnly)
+        if not self.destination_path:
+            self.error_dialog("No folder selected. Please select a valid folder path.")
+        else:
+            self.zip_destination = self.destination_path
+
+    def create_voicebank_zip(self):
+        if not self.vbinfo.folder_path:
+            self.error_dialog("Voicebank folder path is not set. Please select a valid folder path.")
+            return
+        if self.zip_destination == "" or not self.zip_destination:
+            self.error_dialog("Zip destination folder path is not set. Please select a valid folder path.")
+            return
+
+        try:
+            base_vb_folder_path = os.path.basename(self.vbinfo.folder_path)
+            output_path = os.path.join(self.zip_destination, base_vb_folder_path)
+
+            shutil.make_archive(output_path, "zip", self.vbinfo.folder_path)
+            self.back_to_main_menu.emit()
+            self.info_dialog(f"Successfully created zip of the voicebank folder at {self.zip_destination}")
+        except Exception as e:
+            self.error_dialog(f"Error creating base voicebank folder: {str(e)}")
+
+    def error_dialog(self, message):
+        dlg = QMessageBox(self)
+        dlg.setIcon(QMessageBox.Critical)
+        dlg.setWindowTitle("Error")
+        dlg.setText(f"An Error occured: {' '*40}") # Added spacing at end because QMessageBox isn't easily resizable
+        dlg.setInformativeText(message)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
+
+    def info_dialog(self, message):
+        dlg = QMessageBox(self)
+        dlg.setIcon(QMessageBox.Information)
+        dlg.setWindowTitle("Info")
+        dlg.setText(f"Information: {' '*40}")
+        dlg.setInformativeText(message)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -761,12 +769,14 @@ class MainWindow(QMainWindow):
         self.record_widget.back_to_main_menu.connect(self.go_home)
         self.create_base_folder_widget = CreateBaseFolderWidget()
         self.create_base_folder_widget.back_to_main_menu.connect(self.go_home)
+        self.configure_oto_widget = ConfigureOtoWidget()
         self.package_widget = PackageVoicebankWidget()
         self.package_widget.back_to_main_menu.connect(self.go_home)
 
         self.layout.addWidget(self.main_widget)
         self.layout.addWidget(self.record_widget)
         self.layout.addWidget(self.create_base_folder_widget)
+        self.layout.addWidget(self.configure_oto_widget)
         self.layout.addWidget(self.package_widget)
 
         self.layout.setCurrentWidget(self.main_widget)
@@ -873,7 +883,7 @@ class MainWindow(QMainWindow):
         self.record_widget.load_default_reclist_dialog()
 
     def configure_oto(self):
-        print("Configure oto.ini button pressed")
+        self.layout.setCurrentWidget(self.configure_oto_widget)
 
     def package_voicebank(self):
         self.layout.setCurrentWidget(self.package_widget)
