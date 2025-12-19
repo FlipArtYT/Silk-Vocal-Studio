@@ -21,6 +21,7 @@ Silk Vocal Studio combines the main parts of making a UTAU voicebank and even ma
 ## ⚙️ Requirements
 - `PyQT5` (pip)
 - `pyqtgraph` (pip)
+- `pyaudio` (pip)
 
 ## 🚀 Running the program
 To use this program, simply execute the `main.py` file directly via `python3`.
