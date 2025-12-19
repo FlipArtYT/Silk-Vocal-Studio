@@ -4,7 +4,7 @@
 #- Simple but modern PyQT5 GUI
 #- Create base folder with sample folder and `character.txt` for voicebank info
 #- Recording from a `reclist.txt` file
-#- Recording visualisation with `matplotlib`
+#- Recording visualisation with `pyqtgraph`
 #- Automatic configuration of oto.ini file
 #- Packaging to zip
 
