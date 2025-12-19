@@ -451,7 +451,7 @@ class RecordWidget(QWidget):
         dlg.setText("Would you like to use the default reclist?")
         dlg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
 
-        if dlg.exec_():
+        if dlg.exec_() == QMessageBox.Yes:
             if default_reclist_path or default_reclist_path == "":
                 self.load_reclist(default_reclist_path)
 
@@ -1000,15 +1000,14 @@ class MainWindow(QMainWindow):
         dlg.setLayout(dlg_layout)
         btn = dlg.exec()
 
+def load_stylesheet(app):
+    with open("style.qss", "r") as f:
+        app.setStyleSheet(f.read())
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("Silk Vocal Studio")
-    app.setStyle("Fusion")
-    app.setStyleSheet("""
-        QPushButton {
-            font-size: 18px;
-        }
-    """)
+    load_stylesheet(app)
     window = MainWindow()
     window.show()
     app.exec()
