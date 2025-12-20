@@ -252,6 +252,7 @@ class RecordWidget(QWidget):
         self.vbinfo = VoicebankInfo()
         self.current_phoneme = ""
         self.current_loaded_reclist = []
+        self.guidebgm_path = ""
         self.currently_recording = False
 
         # Intitialise pyaudio
@@ -261,36 +262,42 @@ class RecordWidget(QWidget):
         self.frames = []
         self.plot_data = np.array([])
 
+        # Create layouts
         record_layout = QVBoxLayout()
         main_layout = QGridLayout()
         button_control_layout = QHBoxLayout()
         button_control_layout.setContentsMargins(10, 20, 10, 20)
-        title_layout = QHBoxLayout()
+        title_layout = QVBoxLayout()
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setContentsMargins(0, 10, 0, 10)
 
+        # Add layouts
         record_layout.addLayout(main_layout)
         record_layout.addLayout(button_control_layout)
         main_layout.addLayout(title_layout, 0, 0, 1, 2)
+        main_layout.addLayout(toolbar_layout, 1, 0, 1, 2)
 
         title_label = QLabel("Record from Reclist")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; padding: 20px;")
+        title_layout.addWidget(title_label)
 
         choose_samplespath_btn = QPushButton("Choose Voicebank Samples Path...")
-        choose_samplespath_btn.setFixedWidth(250)
         choose_samplespath_btn.clicked.connect(self.open_samplepath_dialog)
+        toolbar_layout.addWidget(choose_samplespath_btn)
         
         import_reclist_btn = QPushButton("Import Reclist...")
-        import_reclist_btn.setFixedWidth(250)
         import_reclist_btn.clicked.connect(self.open_reclist_dialog)
+        toolbar_layout.addWidget(import_reclist_btn)
 
-        title_layout.addWidget(choose_samplespath_btn)
-        title_layout.addWidget(title_label, 1)
-        title_layout.addWidget(import_reclist_btn)
+        import_guidebgm_btn = QPushButton("Import Guide BGM (optional)...")
+        import_guidebgm_btn.clicked.connect(self.open_guidebgm_dialog)
+        toolbar_layout.addWidget(import_guidebgm_btn)
 
         self.current_reclist_line = QLabel("N/A")
         self.current_reclist_line.setAlignment(Qt.AlignLeft)
         self.current_reclist_line.setStyleSheet("font-size: 30px; padding: 10px;")
-        main_layout.addWidget(self.current_reclist_line, 1, 0, 1, 2)
+        main_layout.addWidget(self.current_reclist_line, 2, 0, 1, 2)
 
         self.reclist_list = QTableWidget()
         self.reclist_list.setColumnCount(2)
@@ -300,7 +307,7 @@ class RecordWidget(QWidget):
         self.reclist_list.setFixedWidth(350)
         self.reclist_list.setSelectionBehavior(QTableWidget.SelectRows)
         self.reclist_list.selectionModel().selectionChanged.connect(self.reclist_line_clicked)
-        main_layout.addWidget(self.reclist_list, 2, 0)
+        main_layout.addWidget(self.reclist_list, 3, 0)
 
         self.audio_visualizer = pg.PlotWidget()
         self.audio_visualizer.setBackground('w')
@@ -308,7 +315,7 @@ class RecordWidget(QWidget):
         self.audio_visualizer.setLabel('left', 'Amplitude', color='#000000', size='14pt')
         self.audio_visualizer.setLabel('bottom', 'Time', color='#000000', size='14pt')
         self.audio_visualizer.getViewBox().setMouseEnabled(x=False, y=False)
-        main_layout.addWidget(self.audio_visualizer, 2, 1)
+        main_layout.addWidget(self.audio_visualizer, 3, 1)
 
         button_control_layout.addStretch(1)
 
@@ -358,6 +365,10 @@ class RecordWidget(QWidget):
             self.reclist_list.setItem(row, 1, phoneme_item)
     
     def load_default_reclist_dialog(self):
+        # Check if reclist is already loaded
+        if self.current_loaded_reclist:
+            return
+
         dlg = QMessageBox(self)
         dlg.setIcon(QMessageBox.Question)
         dlg.setWindowTitle("Load default reclist")
@@ -367,6 +378,11 @@ class RecordWidget(QWidget):
         if dlg.exec_() == QMessageBox.Yes:
             if default_reclist_path or default_reclist_path == "":
                 self.load_reclist(default_reclist_path)
+
+    def open_guidebgm_dialog(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Import Guide BGM", os.path.expanduser(""), "WAV Files (*.wav)")
+        if file_path:
+            self.guidebgm_path = file_path
 
 
     def update_graph(self):
@@ -559,7 +575,6 @@ class RecordWidget(QWidget):
                 self.reclist_list.selectRow(previous_row)
 
     def reclist_line_clicked(self):
-        # Stop immediate action if currently recording
         if self.currently_recording:
             return
 
