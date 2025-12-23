@@ -50,6 +50,47 @@ WINDOW_MINWIDTH, WINDOW_MINHEIGHT = 640, 480
 WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT = 960, 720
 VERSION_NUMBER = "0.1.0 Alpha"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HIRAGANA_ROMAJI_MAP = {
+    "あ": "a", "い": "i", "う": "u", "え": "e", "お": "o",
+
+    "か": "ka", "き": "ki", "く": "ku", "け": "ke", "こ": "ko",
+    "きゃ": "kya", "きゅ": "kyu", "きぇ": "kye", "きょ": "kyo",
+    "が": "ga", "ぎ": "gi", "ぐ": "gu", "げ": "ge", "ご": "go",
+    "ぎゃ": "gya", "ぎゅ": "gyu", "ぎぇ": "gye", "ぎょ": "gyo",
+
+    "さ": "sa", "すぃ": "si", "す": "su", "せ": "se", "そ": "so",
+    "しゃ": "sha", "し": "shi", "しゅ": "shu", "しぇ": "she", "しょ": "sho",
+    "ざ": "za", "ずぃ": "zi", "ず": "zu", "ぜ": "ze", "ぞ": "zo",
+    "じゃ": "ja", "じ": "ji", "じゅ": "ju", "じぇ": "je", "じょ": "jo",
+
+    "た": "ta", "てぃ": "ti", "どぅ": "du", "て": "te", "と": "to",
+    "ちゃ": "cha", "ち": "chi", "ちゅ": "chu", "ちぇ": "che", "ちょ": "cho",
+    "つぁ": "tsa", "つぃ": "tsi", "つ": "tsu", "つぇ": "tse", "つぉ": "tso",
+    "だ": "da", "でぃ": "di", "とぅ": "tu", "で": "de", "ど": "do",
+
+    "な": "na", "に": "ni", "ぬ": "nu", "ね": "ne", "の": "no",
+    "にゃ": "nya", "にゅ": "nyu", "にぇ": "nye", "にょ": "nyo",
+
+    "は": "ha", "ひ": "hi", "ほぅ": "hu", "へ": "he", "ほ": "ho",
+    "ひゃ": "hya", "ひゅ": "hyu", "ひぇ": "hye", "ひょ": "hyo",
+    "ふぁ": "fa", "ふぃ": "fi", "ふ": "fu", "ふぇ": "fe", "ふぉ": "fo",
+    "ば": "ba", "び": "bi", "ぶ": "be", "べ": "be", "ぼ": "bo",
+    "びゃ": "bya", "びゅ": "byu", "びぇ": "bye", "びょ": "byo",
+    "ぱ": "pa", "ぴ": "pi", "ぷ": "pu", "ぺ": "pe", "ぽ": "po",
+    "ぴゃ": "pya", "ぴゅ": "pyu", "ぴぇ": "pye", "ぴょ": "pyo",
+
+    "ま": "ma", "み": "mi", "む": "mu", "め": "me", "も": "mo",
+    "みゃ": "mya", "みゅ": "myu", "みぇ": "mye", "みょ": "myo",
+
+    "や": "ya", "ゆ": "yu", "いぇ": "ye", "よ": "yo",
+    "ら": "ra", "り": "ri", "る": "ru", "れ": "re", "ろ": "ro",
+    "りゃ": "rya", "りゅ": "ryu", "りぇ": "rye", "りょ": "ryo",
+
+    "わ": "wa", "うぃ": "wi", "うぇ": "we", "を": "wo",
+    "ヴぁ": "va", "ヴぃ": "vi", "ヴ": "vu", "ヴぇ": "ve", "ヴぉ": "vo",
+
+    "ん": "n",
+}
 
 # Load Settings JSON
 settings_path = os.path.join(SCRIPT_DIR, "config", "settings.json")
@@ -299,6 +340,11 @@ class RecordWidget(QWidget):
         self.current_reclist_line.setStyleSheet("font-size: 30px; padding: 10px;")
         main_layout.addWidget(self.current_reclist_line, 2, 0, 1, 2)
 
+        self.reclist_line_translation = QLabel("")
+        self.reclist_line_translation.setAlignment(Qt.AlignLeft)
+        self.reclist_line_translation.setStyleSheet("font-size: 14px; padding: 10px; color: gray;")
+        main_layout.addWidget(self.reclist_line_translation, 3, 0, 1, 2)
+
         self.reclist_list = QTableWidget()
         self.reclist_list.setColumnCount(2)
         self.reclist_list.setHorizontalHeaderLabels(["Recorded", "Phoneme"])
@@ -307,7 +353,7 @@ class RecordWidget(QWidget):
         self.reclist_list.setFixedWidth(350)
         self.reclist_list.setSelectionBehavior(QTableWidget.SelectRows)
         self.reclist_list.selectionModel().selectionChanged.connect(self.reclist_line_clicked)
-        main_layout.addWidget(self.reclist_list, 3, 0)
+        main_layout.addWidget(self.reclist_list, 4, 0)
 
         self.audio_visualizer = pg.PlotWidget()
         self.audio_visualizer.setBackground('w')
@@ -315,7 +361,7 @@ class RecordWidget(QWidget):
         self.audio_visualizer.setLabel('left', 'Amplitude', color='#000000', size='14pt')
         self.audio_visualizer.setLabel('bottom', 'Time', color='#000000', size='14pt')
         self.audio_visualizer.getViewBox().setMouseEnabled(x=False, y=False)
-        main_layout.addWidget(self.audio_visualizer, 3, 1)
+        main_layout.addWidget(self.audio_visualizer, 4, 1)
 
         button_control_layout.addStretch(1)
 
@@ -588,6 +634,10 @@ class RecordWidget(QWidget):
                 self.current_phoneme = phoneme_item.text()
                 self.current_reclist_line.setText(f"{self.current_phoneme if self.current_phoneme else 'N/A'}")
 
+                # Update translation if available (Hiragana to Romaji)
+                translation = self.hiragana_to_romaji(self.current_phoneme)
+                self.reclist_line_translation.setText(f"{translation if translation else ''}")
+
                 # Check if the file exists and update the 'Recorded' status
                 file_exists = self.check_and_load_wav(self.current_phoneme)
                 
@@ -609,6 +659,15 @@ class RecordWidget(QWidget):
             self.curve.setData(np.array([]))
             self.audio_visualizer.setTitle("Audio Visualizer", color="#000000", size="10pt")
     
+    def hiragana_to_romaji(self, hiragana):
+        # Assuming format: [hiragana]-[hiragana]-[hiragana]... or [hiragana] [hiragana] [hiragana]
+        parts = hiragana.replace('-', ' ').split()
+        romaji_parts = []
+        for part in parts:
+            romaji = HIRAGANA_ROMAJI_MAP.get(part, "")
+            romaji_parts.append(romaji)
+        return ' '.join(romaji_parts)
+
     def open_reclist_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Import Reclist", os.path.expanduser(""), "Text Files (*.txt)")
         if file_path:
