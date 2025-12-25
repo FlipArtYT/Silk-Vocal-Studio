@@ -66,8 +66,8 @@ default_settings = {
     "default_vb_pitch":"A4",
 }
 
-default_reclist_path = "~/Documents/reclist.txt"
-default_guidebgm_path = "~/Documents/guidebgm.wav"
+default_reclist_path = ""
+default_guidebgm_path = ""
 default_vb_pitch = "A4"
 
 if os.path.exists(settings_path):
@@ -75,7 +75,7 @@ if os.path.exists(settings_path):
         d = json.load(f)
         print(d)
 
-        if d["default_reclist_path"] and d["default_guidebgm_path"] and d["default_vb_pitch"]:
+        if d["default_reclist_path"] or d["default_guidebgm_path"] or d["default_vb_pitch"]:
             default_reclist_path = d["default_reclist_path"]
             guide_bgm_path = d["default_guidebgm_path"]
             default_vb_pitch = d["default_vb_pitch"]
@@ -378,8 +378,10 @@ class RecordWidget(QWidget):
             self.reclist_list.setItem(row, 1, phoneme_item)
     
     def load_default_reclist_dialog(self):
-        # Check if reclist is already loaded
+        # Check if reclist is already loaded or there is no default reclist
         if self.current_loaded_reclist:
+            return
+        if default_reclist_path == "":
             return
 
         dlg = QMessageBox(self)
@@ -389,8 +391,7 @@ class RecordWidget(QWidget):
         dlg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
 
         if dlg.exec_() == QMessageBox.Yes:
-            if default_reclist_path or default_reclist_path == "":
-                self.load_reclist(default_reclist_path)
+            self.load_reclist(default_reclist_path)
 
     def open_guidebgm_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Import Guide BGM", os.path.expanduser(""), "WAV Files (*.wav)")
